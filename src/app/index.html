@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | Jull'eys.com</title>
+
+    <style>
+    /* ========================================================
+       1. IMPORT FONT (Super Modern & Geometris)
+    ======================================================== */
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800&display=swap');
+
+    /* ========================================================
+       2. RESET & BACKGROUND (Tekstur Grid & Aurora)
+    ======================================================== */
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Outfit', sans-serif;
+    }
+
+    body {
+        background-color: #030305;
+        /* Tekstur Grid/Jaring halus di background */
+        background-image: 
+            linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+        background-size: 40px 40px;
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: #fff;
+        position: relative;
+        overflow: hidden; /* Biar bola auroranya ga bikin scroll */
+    }
+
+    /* Efek Bola Aurora Kosmik Kiri Atas */
+    body::before {
+        content: '';
+        position: absolute;
+        top: -150px;
+        left: -150px;
+        width: 500px;
+        height: 500px;
+        background: #6a11cb; /* Cosmic Purple */
+        border-radius: 50%;
+        filter: blur(150px);
+        z-index: -1;
+        animation: floatAurora 12s infinite alternate ease-in-out;
+    }
+
+    /* Efek Bola Aurora Kanan Bawah */
+    body::after {
+        content: '';
+        position: absolute;
+        bottom: -150px;
+        right: -100px;
+        width: 600px;
+        height: 600px;
+        background: #ff007f; /* Crimson Neon */
+        border-radius: 50%;
+        filter: blur(180px);
+        z-index: -1;
+        animation: floatAurora 10s infinite alternate-reverse ease-in-out;
+    }
+
+    @keyframes floatAurora {
+        0% { transform: translate(0, 0) scale(1); }
+        100% { transform: translate(60px, -40px) scale(1.1); }
+    }
+
+    /* ========================================================
+       3. WADAH LOGIN (Premium Frosted Glass + Shine)
+    ======================================================== */
+    .login-container {
+        width: 100%;
+        max-width: 440px;
+        padding: 50px 45px;
+        background: rgba(20, 20, 22, 0.4); /* Kaca gelap transparan */
+        backdrop-filter: blur(30px) saturate(150%);
+        -webkit-backdrop-filter: blur(30px) saturate(150%);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 30px;
+        box-shadow: 0 40px 80px rgba(0, 0, 0, 0.5), inset 0 2px 20px rgba(255, 255, 255, 0.03);
+        position: relative;
+        overflow: hidden;
+        z-index: 10;
+        
+        /* Animasi masuk web */
+        animation: popUp 1s cubic-bezier(0.19, 1, 0.22, 1) forwards;
+    }
+
+    /* Efek Kilapan Cahaya Lewat di Kaca */
+    .login-container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -150%;
+        width: 50%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+        transform: skewX(-25deg);
+        animation: sweepShine 7s infinite;
+    }
+
+    @keyframes popUp {
+        0% { opacity: 0; transform: scale(0.9) translateY(30px); }
+        100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    @keyframes sweepShine {
+        0% { left: -150%; }
+        20% { left: 200%; }
+        100% { left: 200%; }
+    }
+
+    /* ========================================================
+       4. HEADER LOGIN (Gradient Text)
+    ======================================================== */
+    .login-header {
+        text-align: center;
+        margin-bottom: 40px;
+    }
+
+    .login-header h1 {
+        font-size: 38px;
+        font-weight: 800;
+        background: linear-gradient(135deg, #fff, #ff007f);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 5px;
+        letter-spacing: 1px;
+    }
+
+    .login-header p {
+        font-size: 15px;
+        color: #9494a0;
+        font-weight: 300;
+    }
+
+    /* ========================================================
+       5. INPUT FORM (Minimalis & Futuristik)
+    ======================================================== */
+    .input-group {
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 25px;
+        position: relative;
+    }
+
+    .input-group label {
+        font-size: 13px;
+        font-weight: 500;
+        color: #b0b0c0;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+    }
+
+    .input-group input {
+        padding: 18px 20px;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        color: #fff;
+        font-size: 15px;
+        outline: none;
+        transition: all 0.4s ease;
+        box-shadow: inset 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+    .input-group input::placeholder {
+        color: #50505a;
+    }
+
+    /* Efek Glow saat ngetik */
+    .input-group input:focus {
+        border-color: #ff007f;
+        background: rgba(255, 255, 255, 0.05);
+        box-shadow: 0 0 15px rgba(255, 0, 127, 0.2), inset 0 2px 5px rgba(0,0,0,0.2);
+        transform: translateY(-2px);
+    }
+
+    /* ========================================================
+       6. OPSI TAMBAHAN 
+    ======================================================== */
+    .form-options {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 14px;
+        margin-bottom: 40px;
+    }
+
+    .remember-me {
+        display: flex;
+        align-items: center;
+        color: #9494a0;
+        cursor: pointer;
+        font-weight: 300;
+    }
+
+    .remember-me input {
+        margin-right: 10px;
+        width: 18px;
+        height: 18px;
+        accent-color: #ff007f;
+        cursor: pointer;
+    }
+
+    .forgot-password {
+        color: #fff;
+        text-decoration: none;
+        font-weight: 500;
+        position: relative;
+    }
+
+    /* Garis bawah animasi ala Cyberpunk */
+    .forgot-password::after {
+        content: '';
+        position: absolute;
+        width: 0;
+        height: 2px;
+        bottom: -3px;
+        left: 0;
+        background: #ff007f;
+        transition: width 0.3s ease;
+    }
+
+    .forgot-password:hover::after {
+        width: 100%;
+    }
+
+    /* ========================================================
+       7. TOMBOL MASUK (Neon Pulse)
+    ======================================================== */
+    .btn-login {
+        width: 100%;
+        padding: 18px;
+        background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+        color: #fff;
+        border: none;
+        border-radius: 16px;
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        cursor: pointer;
+        transition: all 0.4s ease;
+        box-shadow: 0 15px 30px rgba(106, 17, 203, 0.3);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .btn-login:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 20px 40px rgba(106, 17, 203, 0.5);
+        /* Warna geser pas di-hover */
+        background: linear-gradient(135deg, #ff007f 0%, #6a11cb 100%);
+    }
+
+    .btn-login:active {
+        transform: translateY(1px);
+    }
+
+    /* ========================================================
+       8. FOOTER DAFTAR
+    ======================================================== */
+    .login-footer {
+        text-align: center;
+        margin-top: 35px;
+        font-size: 14px;
+        color: #9494a0;
+        font-weight: 300;
+    }
+
+    .login-footer a {
+        color: #2575fc;
+        text-decoration: none;
+        font-weight: 700;
+        margin-left: 5px;
+        transition: color 0.3s ease;
+    }
+
+    .login-footer a:hover {
+        color: #ff007f;
+    }
+</style>s
+</head>
+<body>
+
+    <!-- Wadah Utama Login -->
+    <div class="login-container">
+        
+        <!-- Bagian Judul / Header -->
+        <div class="login-header">
+            <h1>Jull'eys.com</h1>
+            <p>Selamat datang! Silakan masuk ke akun Anda.</p>
+        </div>
+
+        <!-- Bagian Form -->
+        <form action="#" method="POST" class="login-form">
+            
+            <!-- Input Username / Email -->
+            <div class="input-group">
+                <label for="username">Username atau Email</label>
+                <input type="text" id="username" name="username" placeholder="Masukkan username/email" required>
+            </div>
+
+            <!-- Input Password -->
+            <div class="input-group">
+                <label for="password">Kata Sandi</label>
+                <input type="password" id="password" name="password" placeholder="Masukkan kata sandi" required>
+            </div>
+
+            <!-- Opsi Tambahan (Ingat Saya & Lupa Sandi) -->
+            <div class="form-options">
+                <label class="remember-me">
+                    <input type="checkbox" name="remember"> Ingat Saya
+                </label>
+                <a href="#" class="forgot-password">Lupa Kata Sandi?</a>
+            </div>
+
+            <!-- Tombol Submit -->
+            <button type="submit" class="btn-login">Masuk</button>
+            
+        </form>
+
+        <!-- Bagian Footer (Link Daftar) -->
+        <div class="login-footer">
+            <p>Belum punya akun? <a href="#">Daftar sekarang</a></p>
+        </div>
+
+    </div>
+
+</body>
+</html>

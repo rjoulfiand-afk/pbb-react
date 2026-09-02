@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Lirik Elegan</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: linear-gradient(135deg, #050505 40%, #1a052e 100%);
+            font-family: 'Montserrat', sans-serif; /* Menggunakan font baru */
+        }
+
+        #fireworksCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .lyrics-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2;
+            text-align: center;
+            width: 90%;
+        }
+
+        .lyrics-text {
+            color: #f0f0f0;
+            font-size: 3.5rem;
+            font-weight: 300; /* Font tipis biar elegan */
+            letter-spacing: 8px; /* Jarak huruf dilebarin */
+            text-transform: uppercase; /* Bikin huruf besar semua */
+            /* Bayangan hitam lembut biar teks ga tenggelam pas kembang api terang */
+            text-shadow: 2px 4px 10px rgba(0, 0, 0, 0.8);
+            animation: fadeIn 3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            0% { opacity: 0; transform: scale(0.95); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="fireworksCanvas"></canvas>
+    
+    <div class="lyrics-container">
+        <div class="lyrics-text" id="lyricsDisplay">
+            isi lirik di sini
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('fireworksCanvas');
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        const fireworks = [];
+        const particles = [];
+
+        function random(min, max) {
+            return Math.random() * (max - min) + min;
+        }
+
+        class Firework {
+            constructor() {
+                this.x = random(100, canvas.width - 100);
+                this.y = canvas.height;
+                this.targetY = random(150, canvas.height / 2);
+                this.speed = random(6, 12);
+                this.hue = random(0, 360);
+                this.alive = true;
+            }
+
+            update() {
+                this.y -= this.speed;
+                if (this.y <= this.targetY) {
+                    this.alive = false;
+                    this.explode();
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                // Sumbu/Roket diperbesar dari 3 jadi 6
+                ctx.arc(this.x, this.y, 6, 0, Math.PI * 2);
+                ctx.fillStyle = `hsl(${this.hue}, 100%, 70%)`;
+                
+                // Tambahan efek bercahaya pada roket yang meluncur
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = `hsl(${this.hue}, 100%, 60%)`;
+                ctx.fill();
+                
+                // Reset shadow biar ga ngerusak objek lain
+                ctx.shadowBlur = 0;
+            }
+
+            explode() {
+                const particleCount = random(150, 250); 
+                for (let i = 0; i < particleCount; i++) {
+                    particles.push(new Particle(this.x, this.y, this.hue));
+                }
+            }
+        }
+
+        class Particle {
+            constructor(x, y, hue) {
+                this.x = x;
+                this.y = y;
+                this.hue = hue + random(-15, 15);
+                const velocity = random(3, 14); 
+                const angle = random(0, Math.PI * 2);
+                this.vx = Math.cos(angle) * velocity;
+                this.vy = Math.sin(angle) * velocity;
+                this.friction = 0.95;
+                this.gravity = 0.15;
+                this.alpha = 1;
+                this.decay = random(0.01, 0.02);
+            }
+
+            update() {
+                this.vx *= this.friction;
+                this.vy *= this.friction;
+                this.vy += this.gravity;
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= this.decay;
+            }
+
+            draw() {
+                ctx.globalAlpha = this.alpha;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, random(1.5, 3.5), 0, Math.PI * 2);
+                ctx.fillStyle = `hsl(${this.hue}, 100%, 60%)`;
+                ctx.fill();
+            }
+        }
+
+        function animate() {
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.25)'; // Gelapin sisa jejak dikit
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.globalCompositeOperation = 'lighter';
+
+            // Peluang munculnya dikurangi drastis biar ngga terlalu ramai (dari 5 jadi 1.5)
+            if (random(0, 100) < 1.5) { 
+                fireworks.push(new Firework());
+            }
+
+            for (let i = fireworks.length - 1; i >= 0; i--) {
+                fireworks[i].update();
+                fireworks[i].draw();
+                if (!fireworks[i].alive) {
+                    fireworks.splice(i, 1);
+                }
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                particles[i].draw();
+                if (particles[i].alpha <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
