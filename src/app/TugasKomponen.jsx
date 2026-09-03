@@ -6,7 +6,7 @@ import LoginForm from '../components/ui/LoginForm';
 import MyButton from '../components/ui/MyButton';
 import UserCard from '../components/ui/UserCard';
 
-const dataKatalog = Array.from({ length: 50 }, (_, i) => ({ id: `${i}`, nama: `Produk Digital Ke-${i + 1}` }));
+const dataKatalog = Array.from({ length: 50 }, (_, i) => ({ id: `${i}`, nama: `Produk Ke-${i + 1}` }));
 const dataNilai = [
   { title: "Mata Pelajaran Kejuruan", data: ["Pemrograman Web", "Pemrograman Perangkat Bergerak", "Basis Data"] },
   { title: "Mata Pelajaran Umum", data: ["Matematika", "Bahasa Inggris", "Sejarah", "Pendidikan Agama"] }
@@ -18,106 +18,96 @@ export default function TugasKomponen() {
   const [agreed, setAgreed] = useState(false);
 
   return (
-    <ScrollView style={styles.layar} contentContainerStyle={{ paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.layar} contentContainerStyle={{ paddingBottom: 40 }}>
       
-      {/* HEADER DASHBOARD */}
-      <View style={styles.headerBox}>
-        <Text style={styles.judulHeader}>Dashboard Analitik</Text>
-        <Text style={styles.subHeader}>SMKN 10 Surabaya • Developer Mode</Text>
+      <View style={styles.header}>
+        <Text style={styles.judulHeader}>Tugas UI Component</Text>
+ 
       </View>
 
       <View style={styles.konten}>
         
-        {/* TASK 1 */}
-        <Text style={styles.labelTugas}>1. Modul Direktori Anggota</Text>
+        <Text style={styles.labelTugas}>1. UserCard Profil</Text>
         <UserCard name="Rixsan Joulfiand" status="Aktif" imageUrl="https://randomuser.me/api/portraits/men/44.jpg" />
         <UserCard name="Santa" status="Alumni" imageUrl="https://randomuser.me/api/portraits/women/44.jpg" />
         <UserCard name="Mikhayla" status="Aktif" imageUrl="https://randomuser.me/api/portraits/women/68.jpg" />
 
-        {/* TASK 2 */}
-        <Text style={styles.labelTugas}>2. Antarmuka Login (Pressable)</Text>
+        <Text style={styles.labelTugas}>2. Form Login</Text>
         <LoginForm />
 
-        {/* TASK 3 */}
-        <Text style={styles.labelTugas}>3. Katalog 50 Produk (FlatList)</Text>
-        <View style={styles.listContainer}>
+        <Text style={styles.labelTugas}>3. FlatList Katalog</Text>
+        <View style={styles.boxBorder}>
           <FlatList 
             data={dataKatalog} 
             keyExtractor={item => item.id} 
-            renderItem={({item}) => <View style={styles.listItem}><Text style={styles.listText}>{item.nama}</Text></View>} 
+            renderItem={({item}) => <Text style={styles.listItem}>{item.nama}</Text>} 
             nestedScrollEnabled={true}
           />
         </View>
 
-        {/* TASK 4 */}
-        <Text style={styles.labelTugas}>4. Modul Pembelajaran (ScrollView)</Text>
-        <View style={styles.moduleBox}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scrollHoriz} contentContainerStyle={{ paddingHorizontal: 16, alignItems: 'center' }}>
-            {['React Native', 'UI/UX Design', 'Cybersecurity', 'Database SQL'].map((kat, idx) => (
-              <View key={idx} style={styles.chipKategori}><Text style={styles.chipText}>{kat}</Text></View>
+        {/* REVISI SOAL 4: Konten diperpanjang & Cybersecurity dihapus */}
+        <Text style={styles.labelTugas}>4. ScrollView Horizontal & Vertikal</Text>
+        <View style={styles.boxBorder}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scrollHoriz} contentContainerStyle={{ alignItems: 'center', paddingHorizontal: 10 }}>
+            {['React Native', 'UI/UX Design', 'Database SQL', 'Python Dasar', 'PHP Lanjut'].map((kat, idx) => (
+              <Text key={idx} style={styles.chipKategori}>{kat}</Text>
             ))}
           </ScrollView>
           <ScrollView style={styles.scrollVert} nestedScrollEnabled={true}>
-            <Text style={styles.artikelTeks}>Ini adalah area artikel vertikal. Gulir ke bawah untuk membaca seluruh konten. Materi ini mengajarkan dasar komponen UI, interaksi pengguna, dan optimasi performa dalam pengembangan aplikasi mobile modern. Penerapan Flexbox dan penguasaan State Management sangat krusial di sini.</Text>
+            <Text style={styles.artikelTeks}>
+              Ini adalah area artikel vertikal. Gulir ke bawah untuk membaca seluruh konten. 
+              Sebelumnya fitur scroll tidak berjalan karena teksnya terlalu pendek, sehingga sistem merasa tidak perlu ada fungsi gulir. 
+              Materi ini mengajarkan dasar komponen UI, interaksi pengguna, dan optimasi performa dalam pengembangan aplikasi mobile modern.
+              Dengan teks yang diperpanjang seperti ini, kamu sekarang bisa mencoba men-scroll konten ini ke atas dan ke bawah dengan lancar.
+            </Text>
           </ScrollView>
         </View>
 
-        {/* TASK 5 & 6 */}
-        <Text style={styles.labelTugas}>5 & 6. Tombol Varian & Indikator Jaringan</Text>
-        <View style={styles.cardBox}>
-          <MyButton title="Fetch Data Server (Buka Modal)" variant="primary" onPress={() => { setModalVisible(true); setTimeout(()=>setModalVisible(false), 2500); }} />
-          <MyButton title="Simpan Konfigurasi" variant="success" onPress={() => {}} />
-          <MyButton title="Hapus Cache Aplikasi" variant="danger" onPress={() => {}} />
-        </View>
+        <Text style={styles.labelTugas}>5 & 6. Tombol Kustom & Indikator</Text>
+        <MyButton title="Fetch Data (Buka Modal)" variant="primary" onPress={() => { setModalVisible(true); setTimeout(()=>setModalVisible(false), 2000); }} />
+        <MyButton title="Simpan" variant="success" onPress={() => {}} />
+        <MyButton title="Hapus" variant="danger" onPress={() => {}} />
 
         <Modal transparent={true} visible={modalVisible} animationType="fade">
           <View style={styles.modalBg}>
             <View style={styles.modalIsi}>
-              <ActivityIndicator size="large" color="#4C1D95" style={{ marginBottom: 15 }} />
-              <Text style={{ fontWeight: 'bold', fontSize: 16, color: '#1F2937' }}>Memuat data server...</Text>
-              <Text style={{ fontSize: 13, color: '#6B7280', marginTop: 5 }}>Mohon tunggu sebentar.</Text>
+              <ActivityIndicator size="large" color="#000" />
+              <Text style={{ marginTop: 10 }}>Memuat data...</Text>
             </View>
           </View>
         </Modal>
 
-        {/* TASK 7 */}
-        <Text style={styles.labelTugas}>7. Galeri Foto (CustomImage)</Text>
-        <CustomImage source={{ uri: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600' }} style={{ width: '100%', height: 200 }} />
+        <Text style={styles.labelTugas}>7. CustomImage Placeholder</Text>
+        <CustomImage source={{ uri: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600' }} style={{ width: '100%', height: 150, marginBottom: 10 }} />
 
-        {/* TASK 8 */}
-        <Text style={styles.labelTugas}>8. Rekapitulasi Nilai (SectionList)</Text>
-        <View style={styles.listContainer}>
+        <Text style={styles.labelTugas}>8. SectionList Nilai</Text>
+        <View style={styles.boxBorder}>
           <SectionList
             sections={dataNilai}
             keyExtractor={(item, index) => item + index}
-            renderItem={({ item }) => <View style={styles.listItem}><Text style={styles.listText}>• {item}</Text></View>}
-            renderSectionHeader={({ section: { title } }) => (
-              <View style={styles.sectionHeader}><Text style={styles.sectionTitleText}>{title}</Text></View>
-            )}
+            renderItem={({ item }) => <Text style={styles.listItem}>- {item}</Text>}
+            renderSectionHeader={({ section: { title } }) => <Text style={styles.sectionHeader}>{title}</Text>}
             nestedScrollEnabled={true}
           />
         </View>
 
-        {/* TASK 9 */}
-        <Text style={styles.labelTugas}>9. Pengaturan Tema (TouchableOpacity)</Text>
+        <Text style={styles.labelTugas}>9. Pilihan Kategori Mode</Text>
         <View style={styles.rowOpsi}>
           {['Light Mode', 'Dark Mode', 'System Default'].map((opsi) => (
-            <TouchableOpacity key={opsi} onPress={() => setModeAktif(opsi)} style={[styles.opsiBtn, modeAktif === opsi && styles.opsiAktif]} activeOpacity={0.7}>
-              <Text style={[styles.opsiText, modeAktif === opsi && { color: '#FFFFFF' }]}>{opsi}</Text>
+            <TouchableOpacity key={opsi} onPress={() => setModeAktif(opsi)} style={[styles.opsiBtn, modeAktif === opsi && styles.opsiAktif]}>
+              <Text style={[styles.opsiText, modeAktif === opsi && { color: '#fff' }]}>{opsi}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* TASK 10 */}
-        <Text style={styles.labelTugas}>10. Kebijakan Privasi (Switch)</Text>
+        <Text style={styles.labelTugas}>10. Switch Kebijakan Privasi</Text>
         <View style={styles.switchBox}>
-          <Text style={{ flex: 1, fontSize: 14, color: '#374151', lineHeight: 20, paddingRight: 15 }}>
-            Saya menyetujui seluruh <Text style={{fontWeight: 'bold', color: '#4C1D95'}}>Syarat & Ketentuan</Text> pendaftaran.
-          </Text>
-          <Switch value={agreed} onValueChange={setAgreed} trackColor={{ false: '#E5E7EB', true: '#C4B5FD' }} thumbColor={agreed ? '#4C1D95' : '#FFFFFF'} />
+          <Switch value={agreed} onValueChange={setAgreed} />
+          <Text style={{ marginLeft: 10 }}>Saya menyetujui Syarat & Ketentuan.</Text>
         </View>
-        <TouchableOpacity style={[styles.submitFinal, !agreed && { backgroundColor: '#D1D5DB' }]} disabled={!agreed} activeOpacity={0.8}>
-          <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }}>Kirim Pendaftaran</Text>
+        
+        <TouchableOpacity style={[styles.submitFinal, !agreed && { backgroundColor: '#ccc' }]} disabled={!agreed}>
+          <Text style={{ color: '#fff', fontWeight: 'bold' }}>Submit Pendaftaran</Text>
         </TouchableOpacity>
 
       </View>
@@ -125,43 +115,32 @@ export default function TugasKomponen() {
   );
 }
 
-// STYLING KHUSUS TATA LETAK MOBILE
 const styles = StyleSheet.create({
-  layar: { flex: 1, backgroundColor: '#F4F4F9' },
-  headerBox: { backgroundColor: '#4C1D95', paddingTop: 60, paddingBottom: 30, paddingHorizontal: 24, borderBottomLeftRadius: 24, borderBottomRightRadius: 24, shadowColor: '#4C1D95', shadowOpacity: 0.3, shadowRadius: 15, elevation: 8, marginBottom: 20 },
-  judulHeader: { color: '#FFFFFF', fontSize: 26, fontWeight: '900', letterSpacing: 0.5 },
-  subHeader: { color: '#C4B5FD', fontSize: 14, marginTop: 6, fontWeight: '500' },
-  konten: { paddingHorizontal: 20 },
+  layar: { flex: 1, backgroundColor: '#f9f9f9' },
+  header: { padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#ddd', marginBottom: 15 },
+  judulHeader: { fontSize: 20, fontWeight: 'bold', color: '#333' },
+  subHeader: { fontSize: 14, color: '#666', marginTop: 5 },
+  konten: { paddingHorizontal: 15 },
   
-  labelTugas: { fontSize: 15, fontWeight: '800', color: '#4C1D95', marginTop: 30, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
-  cardBox: { backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, elevation: 1 },
+  labelTugas: { fontSize: 14, fontWeight: 'bold', color: '#333', marginTop: 20, marginBottom: 8, textDecorationLine: 'underline' },
+  boxBorder: { height: 150, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', marginBottom: 10 },
   
-  // List Styles
-  listContainer: { height: 220, backgroundColor: '#FFFFFF', borderRadius: 16, overflow: 'hidden', elevation: 2 },
-  listItem: { paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  listText: { fontSize: 15, color: '#374151' },
-  sectionHeader: { backgroundColor: '#EDE9FE', paddingVertical: 8, paddingHorizontal: 16 },
-  sectionTitleText: { color: '#4C1D95', fontWeight: 'bold', fontSize: 13, textTransform: 'uppercase' },
+  listItem: { padding: 10, borderBottomWidth: 1, borderBottomColor: '#eee' },
+  sectionHeader: { backgroundColor: '#e9ecef', padding: 8, fontWeight: 'bold' },
 
-  // ScrollView Modul
-  moduleBox: { backgroundColor: '#FFFFFF', borderRadius: 16, elevation: 1, overflow: 'hidden' },
-  scrollHoriz: { height: 60, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  chipKategori: { backgroundColor: '#F5F3FF', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, marginRight: 10, borderWidth: 1, borderColor: '#EDE9FE' },
-  chipText: { color: '#4C1D95', fontWeight: 'bold', fontSize: 13 },
-  scrollVert: { height: 120, padding: 16 },
-  artikelTeks: { color: '#4B5563', fontSize: 15, lineHeight: 24 },
+  scrollHoriz: { borderBottomWidth: 1, borderColor: '#ddd', maxHeight: 50 },
+  chipKategori: { backgroundColor: '#e9ecef', padding: 5, marginRight: 10, borderWidth: 1, borderColor: '#ccc' },
+  scrollVert: { padding: 10 },
+  artikelTeks: { color: '#333', lineHeight: 20 },
 
-  // Modal Indicator
-  modalBg: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(15, 23, 42, 0.6)' },
-  modalIsi: { backgroundColor: '#FFFFFF', padding: 30, borderRadius: 20, alignItems: 'center', width: '75%', elevation: 10 },
+  modalBg: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
+  modalIsi: { backgroundColor: '#fff', padding: 20, alignItems: 'center', borderWidth: 1, borderColor: '#999' },
 
-  // Tema Mode
-  rowOpsi: { flexDirection: 'row', backgroundColor: '#FFFFFF', padding: 6, borderRadius: 12, elevation: 1 },
-  opsiBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
-  opsiAktif: { backgroundColor: '#4C1D95', shadowColor: '#4C1D95', elevation: 2 },
-  opsiText: { fontSize: 12, fontWeight: 'bold', color: '#6B7280' },
+  rowOpsi: { flexDirection: 'row', marginBottom: 10 },
+  opsiBtn: { flex: 1, padding: 10, borderWidth: 1, borderColor: '#ccc', alignItems: 'center', backgroundColor: '#fff' },
+  opsiAktif: { backgroundColor: '#007BFF', borderColor: '#007BFF' },
+  opsiText: { color: '#333' },
 
-  // Switch
-  switchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', padding: 20, borderRadius: 16, marginBottom: 12, elevation: 1 },
-  submitFinal: { backgroundColor: '#10B981', paddingVertical: 16, borderRadius: 12, alignItems: 'center', elevation: 3 }
+  switchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 10, borderWidth: 1, borderColor: '#ddd', marginBottom: 10 },
+  submitFinal: { backgroundColor: '#28A745', padding: 15, alignItems: 'center' }
 });
