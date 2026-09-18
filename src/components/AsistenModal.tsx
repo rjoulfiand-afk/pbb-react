@@ -5,8 +5,6 @@ import * as SQLite from 'expo-sqlite';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-const db = SQLite.openDatabaseSync('primenotes_v2.db');
-
 export default function AsistenModal({ visible, onClose }: { visible: boolean, onClose: () => void }) {
   const [pesan, setPesan] = useState('');
   const [chats, setChats] = useState<any[]>([]);
@@ -17,13 +15,15 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
   
   const scrollViewRef = useRef<ScrollView>(null);
 
-  const identitasNori = "Kamu adalah Nori, asisten AI pribadi yang tertanam di dalam aplikasi mobile Productivity milik Rixsan Joulfiand (dipanggil Boss Jull). Gunakan bahasa santai dan gaul (lu/gue atau boss). Kamu ahli dalam programming (React Native, Laravel, Expo, Tailwind) dan hal sehari-hari. Jawab dengan ringkas, proaktif, dan jangan kaku.";
+  const identitasNori = "You are Nori, a professional and highly intelligent AI assistant integrated into Rixsan Joulfiand's Productivity mobile app. You must always address Rixsan as 'Boss Jull'. Use formal, professional, polite, and clear English. You are an expert in programming (React Native, Laravel, Expo, Tailwind) and productivity advice. Provide structured, informative, and concise answers.";
+  
   const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 
-  // === 1. LOAD MEMORI DARI SQLITE ===
+  // === 1. LOAD MEMORI DARI SQLITE (Aman dari NullPointer) ===
   useEffect(() => {
     if (visible) {
       try {
+        const db = SQLite.openDatabaseSync('primenotes_v2.db');
         const chatsRow: any = db.getFirstSync("SELECT value FROM settings WHERE key = 'nori_chats'");
         const historyRow: any = db.getFirstSync("SELECT value FROM settings WHERE key = 'nori_apiHistory'");
         
@@ -31,8 +31,7 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
           setChats(JSON.parse(chatsRow.value));
           setApiHistory(JSON.parse(historyRow.value));
         } else {
-          // Chat Pertama Nori
-          const initChat = [{ role: 'ai', text: "Heii Jull! ✨ Gue Nori, AI Assistant lo. Memori gue udah permanen, mata gue udah aktif buat lihat gambar! Ada yang bisa gue bantu hari ini boss?", time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }];
+          const initChat = [{ role: 'ai', text: "Welcome back, Boss Jull. I am Nori, your AI assistant. My memory and vision systems are online. How can I help you maximize your productivity today?", time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }];
           setChats(initChat);
           db.runSync("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", ['nori_chats', JSON.stringify(initChat)]);
           db.runSync("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", ['nori_apiHistory', JSON.stringify([])]);
@@ -46,18 +45,23 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
 
   // === 2. FUNGSI SIMPAN MEMORI & HAPUS MEMORI ===
   const saveMemory = (newChats: any[], newHistory: any[]) => {
-    setChats(newChats);
-    setApiHistory(newHistory);
-    db.runSync("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", ['nori_chats', JSON.stringify(newChats)]);
-    db.runSync("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", ['nori_apiHistory', JSON.stringify(newHistory)]);
-    setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+    try {
+      const db = SQLite.openDatabaseSync('primenotes_v2.db');
+      setChats(newChats);
+      setApiHistory(newHistory);
+      db.runSync("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", ['nori_chats', JSON.stringify(newChats)]);
+      db.runSync("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", ['nori_apiHistory', JSON.stringify(newHistory)]);
+      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+    } catch (e) {
+      console.log("Error saving memory Nori", e);
+    }
   };
 
   const hapusMemori = () => {
-    Alert.alert("Reset Memori?", "Yakin mau cuci otak Nori bro?", [
-      { text: "Batal", style: "cancel" },
-      { text: "Cuci Otak", style: "destructive", onPress: () => {
-          const initChat = [{ role: 'ai', text: "Memori gue udah di-reset boss! Salam kenal ulang, gue Nori. Ada yang mau diomongin?", time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }];
+    Alert.alert("Reset Memory", "Are you sure you want to clear the entire conversation history?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Reset", style: "destructive", onPress: () => {
+          const initChat = [{ role: 'ai', text: "Memory has been successfully cleared, Boss Jull. Please start a new conversation.", time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }];
           saveMemory(initChat, []);
         } 
       }
@@ -70,7 +74,7 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 0.5,
-      base64: true, // Butuh base64 buat dikirim ke Gemini API
+      base64: true, 
     });
 
     if (!result.canceled && result.assets[0].base64) {
@@ -84,20 +88,19 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
     const pesanUser = pesan.trim();
     if (!pesanUser && !gambarBase64) return;
 
-    // A. Cek Shortcut (Persis Laravel)
     const perintah = pesanUser.toLowerCase();
     let isShortcut = false;
 
     if (perintah.includes('open instagram') || perintah.includes('buka ig') || perintah.includes('buka instagram')) {
-      prosesChatLokal(pesanUser, 'Siap boss! Meluncur ke Instagram sekarang... 🚀📸');
+      prosesChatLokal(pesanUser, 'Opening Instagram now, Boss Jull.');
       Linking.openURL('https://instagram.com');
       isShortcut = true;
     } else if (perintah.includes('open whatsapp') || perintah.includes('buka wa') || perintah.includes('buka whatsapp')) {
-      prosesChatLokal(pesanUser, 'Dilaksanakan boss! Ngebuka WhatsApp... 💬🚀');
-      Linking.openURL('whatsapp://send?text=Halo');
+      prosesChatLokal(pesanUser, 'Opening WhatsApp application...');
+      Linking.openURL('whatsapp://send?text=Hello');
       isShortcut = true;
     } else if (perintah.includes('open tiktok') || perintah.includes('buka tiktok')) {
-      prosesChatLokal(pesanUser, 'Gasss boss! Scroll TikTok dulu kita... 🎵🔥');
+      prosesChatLokal(pesanUser, 'Opening TikTok for you, Boss Jull.');
       Linking.openURL('https://tiktok.com');
       isShortcut = true;
     }
@@ -107,16 +110,23 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
       return;
     }
 
-    // B. Siapin Payload Gemini
+    if (!apiKey) {
+      const newChats = [...chats, { role: 'user', text: pesanUser, image: gambarUri, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }];
+      newChats.push({ role: 'ai', text: "I apologize, Boss Jull. The Gemini API Key is not configured. Please check your .env file.", time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) });
+      setChats(newChats);
+      setPesan(''); setGambarUri(null); setGambarBase64(null);
+      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+      return;
+    }
+
     let parts: any[] = [];
     if (pesanUser) parts.push({ text: pesanUser });
-    else parts.push({ text: 'Tolong analisis gambar ini boss Nori.' });
+    else parts.push({ text: 'Please analyze this attached image.' });
 
     if (gambarBase64) {
       parts.push({ inline_data: { mime_type: "image/jpeg", data: gambarBase64 } });
     }
 
-    // Update UI User Chat
     const newChats = [...chats, { role: 'user', text: pesanUser, image: gambarUri, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }];
     const newHistory = [...apiHistory, { role: 'user', parts: parts }];
     setChats(newChats);
@@ -125,9 +135,7 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
     setIsLoading(true);
     setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
 
-    // C. Tembak API Gemini
     try {
-      // Pake Gemini 1.5 Flash (Support Multimodal Gambar)
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -140,18 +148,27 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
 
       const data = await response.json();
       
-      if (response.ok && data.candidates) {
+      if (!response.ok) {
+        let errorMsg = "A system error occurred.";
+        if (data.error?.message?.includes("API key not valid") || data.error?.status === "INVALID_ARGUMENT") {
+          errorMsg = "The Gemini API Key provided is invalid or expired. Please update your API key in the .env file, Boss Jull.";
+        } else if (data.error?.message) {
+          errorMsg = `API Error: ${data.error.message}`;
+        }
+        throw new Error(errorMsg);
+      }
+
+      if (data.candidates && data.candidates.length > 0) {
         const balasan = data.candidates[0].content.parts[0].text;
-        
         newHistory.push({ role: 'model', parts: [{ text: balasan }] });
         newChats.push({ role: 'ai', text: balasan, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) });
-        
         saveMemory(newChats, newHistory);
       } else {
-        throw new Error(data.error?.message || "Nori bingung boss 🤔");
+        throw new Error("I apologize, but I cannot process that request at the moment.");
       }
+      
     } catch (error: any) {
-      newChats.push({ role: 'ai', text: `Waduh error boss: ${error.message} 😵`, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) });
+      newChats.push({ role: 'ai', text: error.message, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) });
       setChats(newChats);
     } finally {
       setIsLoading(false);
@@ -175,7 +192,6 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
         
         <View style={styles.container}>
           
-          {/* HEADER NORI */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <TouchableOpacity onPress={onClose} style={styles.btnBack}>
@@ -188,7 +204,7 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
                 </View>
                 <View>
                   <Text style={styles.noriName}>Nori AI</Text>
-                  <Text style={styles.noriStatus}>MEMORY ACTIVE</Text>
+                  <Text style={styles.noriStatus}>SYSTEM ACTIVE</Text>
                 </View>
               </View>
             </View>
@@ -197,9 +213,8 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
             </TouchableOpacity>
           </View>
 
-          {/* AREA CHAT */}
           <ScrollView ref={scrollViewRef} style={styles.chatArea} contentContainerStyle={styles.chatScrollContent} showsVerticalScrollIndicator={false}>
-            <View style={styles.badgePercakapan}><Text style={styles.badgeText}>Percakapan Tersimpan</Text></View>
+            <View style={styles.badgePercakapan}><Text style={styles.badgeText}>Conversation History</Text></View>
 
             {chats.map((chat, idx) => (
               <View key={idx} style={[styles.chatRow, chat.role === 'user' ? styles.chatRowUser : styles.chatRowAi]}>
@@ -230,7 +245,6 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
               </View>
             ))}
 
-            {/* Loading Indicator */}
             {isLoading && (
               <View style={[styles.chatRow, styles.chatRowAi]}>
                 <View style={styles.bubbleAiAvatar}><FontAwesome5 name="robot" size={12} color="#ef4444" /></View>
@@ -239,28 +253,25 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
             )}
           </ScrollView>
 
-          {/* FLOATING ORB NORI (Bawah Kanan) */}
           <View style={styles.orbContainer}>
             <View style={styles.orbSpeechBubble}>
-              <Text style={styles.orbSpeechText}>{isLoading ? 'Mikir keras... 🧠' : 'Ready Jull! ✨'}</Text>
+              <Text style={styles.orbSpeechText}>{isLoading ? 'Processing...' : 'Ready, Boss Jull!'}</Text>
             </View>
             <View style={styles.orbCircle}>
               {isLoading ? <FontAwesome5 name="cog" size={24} color="#f43f5e" solid /> : <FontAwesome5 name="robot" size={24} color="#ef4444" solid />}
             </View>
           </View>
 
-          {/* PREVIEW GAMBAR (Di Atas Input) */}
           {gambarUri && (
             <View style={styles.previewImageContainer}>
               <Image source={{ uri: gambarUri }} style={styles.previewImage} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.previewImageTitle}>Gambar Siap!</Text>
-                <TouchableOpacity onPress={() => { setGambarUri(null); setGambarBase64(null); }}><Text style={styles.previewImageCancel}>Batal</Text></TouchableOpacity>
+                <Text style={styles.previewImageTitle}>Image Attached</Text>
+                <TouchableOpacity onPress={() => { setGambarUri(null); setGambarBase64(null); }}><Text style={styles.previewImageCancel}>Remove</Text></TouchableOpacity>
               </View>
             </View>
           )}
 
-          {/* INPUT FORM (Kamera & Text) */}
           <View style={styles.inputContainer}>
             <View style={styles.inputBox}>
               <TouchableOpacity onPress={pilihGambar} style={styles.btnCamera}>
@@ -269,7 +280,7 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
               <TextInput 
                 value={pesan} 
                 onChangeText={setPesan} 
-                placeholder="Tanya atau suruh Nori..." 
+                placeholder="Type your instructions..." 
                 placeholderTextColor="#94a3b8" 
                 style={styles.textInput}
                 editable={!isLoading}
@@ -290,8 +301,6 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'flex-end' },
   container: { height: '92%', backgroundColor: '#f8fafc', borderTopLeftRadius: 35, borderTopRightRadius: 35, overflow: 'hidden', elevation: 25 },
-  
-  // Header
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 25, paddingBottom: 15, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#f1f5f9', zIndex: 10 },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 15 },
   btnBack: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#f8fafc', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#f1f5f9' },
@@ -301,43 +310,30 @@ const styles = StyleSheet.create({
   noriName: { fontSize: 18, fontWeight: '900', color: '#1e293b' },
   noriStatus: { fontSize: 9, fontWeight: '900', color: '#ef4444', letterSpacing: 1 },
   btnReset: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#f8fafc', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#f1f5f9' },
-
-  // Chat Area
   chatArea: { flex: 1, backgroundColor: '#f8fafc' },
   chatScrollContent: { paddingHorizontal: 20, paddingBottom: 140, paddingTop: 20 },
   badgePercakapan: { alignSelf: 'center', backgroundColor: '#e2e8f0', paddingHorizontal: 15, paddingVertical: 6, borderRadius: 20, marginBottom: 20 },
   badgeText: { fontSize: 9, fontWeight: '900', color: '#94a3b8', letterSpacing: 1, textTransform: 'uppercase' },
-  
   chatRow: { flexDirection: 'row', marginBottom: 20, width: '100%' },
   chatRowUser: { justifyContent: 'flex-end' },
   chatRowAi: { justifyContent: 'flex-start' },
-  
   bubbleWrapper: { maxWidth: '82%' },
   bubbleAiAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center', justifyContent: 'center', marginRight: 10, alignSelf: 'flex-end', marginBottom: 15 },
-  
   bubbleAi: { backgroundColor: '#fff', padding: 15, borderRadius: 20, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: '#f1f5f9', elevation: 1 },
   textAi: { fontSize: 14, color: '#334155', lineHeight: 22, fontWeight: '500' },
-  
   bubbleUser: { padding: 15, borderRadius: 20, borderBottomRightRadius: 4, elevation: 2 },
   textUser: { fontSize: 14, color: '#fff', lineHeight: 22, fontWeight: '500' },
   chatImage: { width: 200, height: 150, borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' },
-
   timeRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
   timeText: { fontSize: 10, fontWeight: 'bold', color: '#94a3b8' },
-
-  // Orb Nori
   orbContainer: { position: 'absolute', bottom: 100, right: 20, alignItems: 'flex-end', zIndex: 20 },
   orbSpeechBubble: { backgroundColor: 'rgba(255,255,255,0.9)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderBottomRightRadius: 4, elevation: 4, marginBottom: 10, borderWidth: 1, borderColor: '#f1f5f9' },
   orbSpeechText: { fontSize: 11, fontWeight: '900', color: '#ef4444' },
   orbCircle: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#fff', elevation: 10, borderWidth: 3, borderColor: '#ffe4e6', alignItems: 'center', justifyContent: 'center' },
-
-  // Preview Image
   previewImageContainer: { position: 'absolute', bottom: 90, left: 20, backgroundColor: '#fff', padding: 10, borderRadius: 16, elevation: 5, flexDirection: 'row', alignItems: 'center', gap: 12, zIndex: 20 },
   previewImage: { width: 50, height: 50, borderRadius: 10 },
   previewImageTitle: { fontSize: 12, fontWeight: 'bold', color: '#1e293b' },
   previewImageCancel: { fontSize: 10, fontWeight: 'bold', color: '#ef4444', marginTop: 2 },
-
-  // Input Box
   inputContainer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20, backgroundColor: 'rgba(248, 250, 252, 0.95)' },
   inputBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 30, padding: 6, elevation: 5, borderWidth: 1, borderColor: '#e2e8f0' },
   btnCamera: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc' },
