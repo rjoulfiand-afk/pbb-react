@@ -2,20 +2,15 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SQLite from 'expo-sqlite';
 import { useState } from 'react';
-import { Alert, Dimensions, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-const db = SQLite.openDatabaseSync('primenotes.db');
+const db = SQLite.openDatabaseSync('primenotes_v2.db');
 
-// 💡 FIX 1: Pakai 'screen' bukan 'window' biar tinggi modal ngga ciut pas keyboard muncul!
-const { height: screenHeight } = Dimensions.get('screen'); 
-
-// 💡 KOMPONEN KHUSUS: Efek Kertas Binder bergaris buat Catatan
 const PaperLines = () => (
   <View style={[StyleSheet.absoluteFill, { zIndex: 0 }]} pointerEvents="none">
     {Array.from({ length: 30 }).map((_, i) => (
       <View key={i} style={{ height: 32, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' }} />
     ))}
-    {/* Garis Margin Merah ala buku tulis */}
     <View style={{ position: 'absolute', left: 40, top: 0, bottom: 0, width: 2, backgroundColor: '#fca5a5', opacity: 0.5 }} />
   </View>
 );
@@ -23,91 +18,57 @@ const PaperLines = () => (
 export default function AddMenuModal({ visible, onClose, onSuccess }: { visible: boolean, onClose: () => void, onSuccess: () => void }) {
   const [activeForm, setActiveForm] = useState<'menu' | 'nabung' | 'keluar' | 'tugas' | 'catatan'>('menu');
 
-  // === OTAK LOGIKA NABUNG ===
   const [uangStr, setUangStr] = useState('');
   const [keteranganNabung, setKeteranganNabung] = useState('');
-
-  const formatRupiah = (text: string) => {
-    let angka = text.replace(/[^0-9]/g, '');
-    setUangStr(angka ? new Intl.NumberFormat('id-ID').format(parseInt(angka)) : '');
-  };
-
-  const tambahUang = (nominal: number, reset = false) => {
-    if (reset) { setUangStr(''); return; }
-    let current = parseInt(uangStr.replace(/[^0-9]/g, '')) || 0;
-    setUangStr(new Intl.NumberFormat('id-ID').format(current + nominal));
-  };
-
+  const formatRupiah = (text: string) => { let angka = text.replace(/[^0-9]/g, ''); setUangStr(angka ? new Intl.NumberFormat('id-ID').format(parseInt(angka)) : ''); };
+  const tambahUang = (nominal: number, reset = false) => { if (reset) { setUangStr(''); return; } let current = parseInt(uangStr.replace(/[^0-9]/g, '')) || 0; setUangStr(new Intl.NumberFormat('id-ID').format(current + nominal)); };
   const simpanNabung = () => {
     const amount = parseInt(uangStr.replace(/[^0-9]/g, '')) || 0;
     if (amount <= 0) { Alert.alert("Eits", "Masukkan nominal setoran!"); return; }
     try {
-      db.runSync(`INSERT INTO savings (amount, purpose, saved_at, created_at) VALUES (?, ?, ?, datetime('now'))`,
-        [amount, keteranganNabung === '' ? 'Tabungan Rutin' : keteranganNabung, new Date().toISOString()]);
+      db.runSync(`INSERT INTO savings (amount, purpose, saved_at, created_at) VALUES (?, ?, ?, datetime('now'))`, [amount, keteranganNabung === '' ? 'Tabungan Rutin' : keteranganNabung, new Date().toISOString()]);
       onSuccess(); resetAndClose();
-    } catch (e) { Alert.alert("Gagal", "Error database."); }
+    } catch (e: any) { Alert.alert("Gagal Database", e.message); }
   };
 
-  // === OTAK LOGIKA KELUAR ===
   const [uangKeluarStr, setUangKeluarStr] = useState('');
   const [keteranganKeluar, setKeteranganKeluar] = useState('');
-
-  const formatRupiahKeluar = (text: string) => {
-    let angka = text.replace(/[^0-9]/g, '');
-    setUangKeluarStr(angka ? new Intl.NumberFormat('id-ID').format(parseInt(angka)) : '');
-  };
-
-  const tambahUangKeluar = (nominal: number, reset = false) => {
-    if (reset) { setUangKeluarStr(''); return; }
-    let current = parseInt(uangKeluarStr.replace(/[^0-9]/g, '')) || 0;
-    setUangKeluarStr(new Intl.NumberFormat('id-ID').format(current + nominal));
-  };
-
+  const formatRupiahKeluar = (text: string) => { let angka = text.replace(/[^0-9]/g, ''); setUangKeluarStr(angka ? new Intl.NumberFormat('id-ID').format(parseInt(angka)) : ''); };
+  const tambahUangKeluar = (nominal: number, reset = false) => { if (reset) { setUangKeluarStr(''); return; } let current = parseInt(uangKeluarStr.replace(/[^0-9]/g, '')) || 0; setUangKeluarStr(new Intl.NumberFormat('id-ID').format(current + nominal)); };
   const simpanKeluar = () => {
     const amount = parseInt(uangKeluarStr.replace(/[^0-9]/g, '')) || 0;
     if (amount <= 0) { Alert.alert("Eits", "Masukkan nominal pengeluaran!"); return; }
     try {
-      db.runSync(`INSERT INTO expenses (amount, description, created_at) VALUES (?, ?, datetime('now'))`,
-        [amount, keteranganKeluar === '' ? 'Lain-lain' : keteranganKeluar]);
+      db.runSync(`INSERT INTO expenses (amount, description, created_at) VALUES (?, ?, datetime('now'))`, [amount, keteranganKeluar === '' ? 'Lain-lain' : keteranganKeluar]);
       onSuccess(); resetAndClose();
-    } catch (e) { Alert.alert("Gagal", "Error database."); }
+    } catch (e: any) { Alert.alert("Gagal Database", e.message); }
   };
 
-  // === OTAK LOGIKA TUGAS ===
   const [judulTugas, setJudulTugas] = useState('');
   const [detailTugas, setDetailTugas] = useState('');
   const [taskPriority, setTaskPriority] = useState('normal');
   const [taskDate, setTaskDate] = useState('besok');
   const [customDateVal, setCustomDateVal] = useState('');
-
   const simpanTugas = () => {
     if (!judulTugas) { Alert.alert("Eits", "Judul misi wajib diisi!"); return; }
     const finalDate = taskDate === 'custom' ? customDateVal : taskDate;
-    
     try {
-      db.runSync(`INSERT INTO tasks (title, priority, due_date, detail, is_completed, created_at) VALUES (?, ?, ?, ?, 0, datetime('now'))`,
-        [judulTugas, taskPriority, finalDate, detailTugas]);
+      db.runSync(`INSERT INTO tasks (title, priority, due_date, detail, is_completed, created_at) VALUES (?, ?, ?, ?, 0, datetime('now'))`, [judulTugas, taskPriority, finalDate, detailTugas]);
       Alert.alert("Sukses!", "Misi baru ditambahkan ke Radar! 🔥");
       onSuccess(); resetAndClose();
-    } catch (e) { Alert.alert("Gagal", "Error database."); }
+    } catch (e: any) { Alert.alert("Gagal Database", e.message); }
   };
 
-  // === OTAK LOGIKA CATATAN ===
   const [judulCatatan, setJudulCatatan] = useState('');
   const [isiCatatan, setIsiCatatan] = useState('');
-
   const simpanCatatan = () => {
-    if (!judulCatatan.trim() && !isiCatatan.trim()) {
-      Alert.alert("Waduh", "Catatannya masih kosong, mau nyimpen apa boss? 😂");
-      return;
-    }
+    if (!judulCatatan.trim() && !isiCatatan.trim()) { Alert.alert("Waduh", "Catatannya kosong boss! 😂"); return; }
     const finalJudul = judulCatatan.trim() ? judulCatatan : 'Ide Dadakan';
     try {
-      db.runSync(`INSERT INTO notes (title, content, icon) VALUES (?, ?, ?)`,
-        [finalJudul, isiCatatan, 'fa-lightbulb']);
+      db.runSync(`INSERT INTO notes (title, content, icon) VALUES (?, ?, ?)`, [finalJudul, isiCatatan, 'lightbulb']);
       Alert.alert("Sukses!", "Ide cemerlang berhasil disimpan! 💡");
       onSuccess(); resetAndClose();
-    } catch (e) { Alert.alert("Gagal", "Error database saat menyimpan catatan."); }
+    } catch (e: any) { Alert.alert("Gagal Database", e.message); }
   };
 
   const resetAndClose = () => {
@@ -122,15 +83,13 @@ export default function AddMenuModal({ visible, onClose, onSuccess }: { visible:
 
   return (
     <Modal visible={visible} transparent={true} animationType="slide" onRequestClose={resetAndClose}>
+      {/* 💡 FIX: Pakai KeyboardAvoidingView yang bener + modal auto-tinggi */}
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.overlay}>
         <TouchableOpacity style={{flex: 1}} activeOpacity={1} onPress={resetAndClose} />
         
-        {/* BUNGKUSAN UTAMA MODAL */}
         <View style={[styles.bottomSheet, activeForm === 'menu' ? styles.sheetAuto : styles.sheetFull]}>
-          
           <View style={styles.indicatorBar} />
 
-          {/* === MENU UTAMA 4 TOMBOL === */}
           {activeForm === 'menu' && (
             <View style={styles.menuContainer}>
               <Text style={styles.mainTitle}>Mau catat apa sekarang?</Text>
@@ -155,21 +114,13 @@ export default function AddMenuModal({ visible, onClose, onSuccess }: { visible:
             </View>
           )}
 
-          {/* === HEADER FORM DINAMIS === */}
           {activeForm === 'nabung' && (
             <LinearGradient colors={['#ecfdf5', '#ffffff']} start={{x: 0, y: 0}} end={{x: 1, y: 0}} style={styles.emeraldHeader}>
               <View style={styles.emeraldGlow} />
               <View style={styles.headerRow}>
-                <TouchableOpacity onPress={() => setActiveForm('menu')} style={styles.btnBackEmerald}>
-                  <FontAwesome5 name="chevron-left" size={16} color="#059669" />
-                </TouchableOpacity>
-                <View style={{ flex: 1, marginLeft: 16, zIndex: 10 }}>
-                  <Text style={styles.emeraldTitle}>Setor Tabungan</Text>
-                  <Text style={styles.emeraldSub}>AMANKAN UANGMU HARI INI</Text>
-                </View>
-                <View style={styles.emeraldIconBox}>
-                  <FontAwesome5 name="wallet" size={24} color="#10b981" />
-                </View>
+                <TouchableOpacity onPress={() => setActiveForm('menu')} style={styles.btnBackEmerald}><FontAwesome5 name="chevron-left" size={16} color="#059669" /></TouchableOpacity>
+                <View style={{ flex: 1, marginLeft: 16, zIndex: 10 }}><Text style={styles.emeraldTitle}>Setor Tabungan</Text><Text style={styles.emeraldSub}>AMANKAN UANGMU HARI INI</Text></View>
+                <View style={styles.emeraldIconBox}><FontAwesome5 name="wallet" size={24} color="#10b981" /></View>
               </View>
             </LinearGradient>
           )}
@@ -178,16 +129,9 @@ export default function AddMenuModal({ visible, onClose, onSuccess }: { visible:
             <LinearGradient colors={['#fef2f2', '#ffffff']} start={{x: 0, y: 0}} end={{x: 1, y: 0}} style={styles.emeraldHeader}>
               <View style={styles.redGlow} />
               <View style={styles.headerRow}>
-                <TouchableOpacity onPress={() => setActiveForm('menu')} style={styles.btnBackRed}>
-                  <FontAwesome5 name="chevron-left" size={16} color="#dc2626" />
-                </TouchableOpacity>
-                <View style={{ flex: 1, marginLeft: 16, zIndex: 10 }}>
-                  <Text style={styles.emeraldTitle}>Pengeluaran</Text>
-                  <Text style={[styles.emeraldSub, {color: '#dc2626'}]}>WADUH, JAJAN APA NIH?</Text>
-                </View>
-                <View style={styles.redIconBox}>
-                  <FontAwesome5 name="receipt" size={24} color="#ef4444" />
-                </View>
+                <TouchableOpacity onPress={() => setActiveForm('menu')} style={styles.btnBackRed}><FontAwesome5 name="chevron-left" size={16} color="#dc2626" /></TouchableOpacity>
+                <View style={{ flex: 1, marginLeft: 16, zIndex: 10 }}><Text style={styles.emeraldTitle}>Pengeluaran</Text><Text style={[styles.emeraldSub, {color: '#dc2626'}]}>WADUH, JAJAN APA NIH?</Text></View>
+                <View style={styles.redIconBox}><FontAwesome5 name="receipt" size={24} color="#ef4444" /></View>
               </View>
             </LinearGradient>
           )}
@@ -196,16 +140,9 @@ export default function AddMenuModal({ visible, onClose, onSuccess }: { visible:
             <LinearGradient colors={['#fff7ed', '#ffffff']} start={{x: 0, y: 0}} end={{x: 1, y: 0}} style={styles.emeraldHeader}>
               <View style={styles.orangeGlow} />
               <View style={styles.headerRow}>
-                <TouchableOpacity onPress={() => setActiveForm('menu')} style={styles.btnBackOrange}>
-                  <FontAwesome5 name="chevron-left" size={16} color="#ea580c" />
-                </TouchableOpacity>
-                <View style={{ flex: 1, marginLeft: 16, zIndex: 10 }}>
-                  <Text style={styles.emeraldTitle}>Misi Baru</Text>
-                  <Text style={[styles.emeraldSub, {color: '#ea580c'}]}>SELESAIKAN & DAPATKAN PIAGAM</Text>
-                </View>
-                <View style={styles.orangeIconBox}>
-                  <FontAwesome5 name="award" size={24} color="#f97316" />
-                </View>
+                <TouchableOpacity onPress={() => setActiveForm('menu')} style={styles.btnBackOrange}><FontAwesome5 name="chevron-left" size={16} color="#ea580c" /></TouchableOpacity>
+                <View style={{ flex: 1, marginLeft: 16, zIndex: 10 }}><Text style={styles.emeraldTitle}>Misi Baru</Text><Text style={[styles.emeraldSub, {color: '#ea580c'}]}>SELESAIKAN & DAPATKAN PIAGAM</Text></View>
+                <View style={styles.orangeIconBox}><FontAwesome5 name="award" size={24} color="#f97316" /></View>
               </View>
             </LinearGradient>
           )}
@@ -214,30 +151,16 @@ export default function AddMenuModal({ visible, onClose, onSuccess }: { visible:
             <LinearGradient colors={['#eff6ff', '#ffffff']} start={{x: 0, y: 0}} end={{x: 1, y: 0}} style={styles.emeraldHeader}>
               <View style={styles.blueGlow} />
               <View style={styles.headerRow}>
-                <TouchableOpacity onPress={() => setActiveForm('menu')} style={styles.btnBackBlue}>
-                  <FontAwesome5 name="chevron-left" size={16} color="#2563eb" />
-                </TouchableOpacity>
-                <View style={{ flex: 1, marginLeft: 16, zIndex: 10 }}>
-                  <Text style={styles.emeraldTitle}>Catatan Baru</Text>
-                  <Text style={[styles.emeraldSub, {color: '#2563eb'}]}>SIMPAN IDE & RENCANAMU</Text>
-                </View>
-                <View style={styles.blueIconBox}>
-                  <FontAwesome5 name="book-open" size={20} color="#3b82f6" />
-                </View>
+                <TouchableOpacity onPress={() => setActiveForm('menu')} style={styles.btnBackBlue}><FontAwesome5 name="chevron-left" size={16} color="#2563eb" /></TouchableOpacity>
+                <View style={{ flex: 1, marginLeft: 16, zIndex: 10 }}><Text style={styles.emeraldTitle}>Catatan Baru</Text><Text style={[styles.emeraldSub, {color: '#2563eb'}]}>SIMPAN IDE & RENCANAMU</Text></View>
+                <View style={styles.blueIconBox}><FontAwesome5 name="book-open" size={20} color="#3b82f6" /></View>
               </View>
             </LinearGradient>
           )}
 
-          {/* === AREA SCROLL FORM === */}
           {activeForm !== 'menu' && (
-            <ScrollView 
-              style={{ flex: 1 }} 
-              contentContainerStyle={[styles.contentScroll, activeForm === 'catatan' && { flexGrow: 1 }]} 
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled" // 💡 FIX 2: Biar tetep bisa di-scroll & diklik pas keyboard muncul
-            >
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.contentScroll, activeForm === 'catatan' && { flexGrow: 1 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               
-              {/* FORM NABUNG */}
               {activeForm === 'nabung' && (
                 <View style={{paddingTop: 5}}>
                   <View style={styles.darkCard}>
@@ -272,7 +195,6 @@ export default function AddMenuModal({ visible, onClose, onSuccess }: { visible:
                 </View>
               )}
 
-              {/* FORM KELUAR */}
               {activeForm === 'keluar' && (
                 <View style={{paddingTop: 5}}>
                   <View style={styles.darkCard}>
@@ -307,7 +229,6 @@ export default function AddMenuModal({ visible, onClose, onSuccess }: { visible:
                 </View>
               )}
 
-              {/* FORM TUGAS */}
               {activeForm === 'tugas' && (
                 <View style={{paddingTop: 10}}>
                   <TextInput value={judulTugas} onChangeText={setJudulTugas} placeholder="Tulis tugasmu disini..." placeholderTextColor="#d1d5db" style={styles.titleDashedInput} />
@@ -349,35 +270,18 @@ export default function AddMenuModal({ visible, onClose, onSuccess }: { visible:
                 </View>
               )}
 
-              {/* === FORM CATATAN BUKU TULIS KHUSUS === */}
               {activeForm === 'catatan' && (
                 <View style={{ paddingTop: 10, flex: 1 }}>
-                  <TextInput 
-                    value={judulCatatan} 
-                    onChangeText={setJudulCatatan} 
-                    placeholder="Judul Catatan..." 
-                    placeholderTextColor="#d1d5db" 
-                    style={styles.noteTitleInput} 
-                  />
-                  
-                  {/* 💡 FIX 3: BUNGKUSAN KERTAS BERGARIS */}
+                  <TextInput value={judulCatatan} onChangeText={setJudulCatatan} placeholder="Judul Catatan..." placeholderTextColor="#d1d5db" style={styles.noteTitleInput} />
                   <View style={styles.paperWrapper}>
                     <PaperLines />
-                    <TextInput 
-                      value={isiCatatan} 
-                      onChangeText={setIsiCatatan} 
-                      placeholder="Mulai mengetik ide cemerlangmu di sini..." 
-                      placeholderTextColor="#9ca3af" 
-                      multiline 
-                      style={styles.noteContentInput} 
-                    />
+                    <TextInput value={isiCatatan} onChangeText={setIsiCatatan} placeholder="Mulai mengetik ide cemerlangmu di sini..." placeholderTextColor="#9ca3af" multiline style={styles.noteContentInput} />
                   </View>
                 </View>
               )}
             </ScrollView>
           )}
 
-          {/* === FOOTER TETAP (FIXED BOTTOM) === */}
           {activeForm !== 'menu' && (
             <View style={styles.fixedFooter}>
               {activeForm === 'nabung' && (
@@ -416,14 +320,13 @@ export default function AddMenuModal({ visible, onClose, onSuccess }: { visible:
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(17, 24, 39, 0.6)', justifyContent: 'flex-end' },
   
-  // BUNGKUSAN MODAL (Tinggi di-lock pakai screenHeight biar nggak menciut kena keyboard)
+  // 💡 FIX 4: Tinggi modalnya diubah jadi persen, biar ngga error pas keyboard nongol!
   bottomSheet: { backgroundColor: '#ffffff', borderTopLeftRadius: 40, borderTopRightRadius: 40, elevation: 25, shadowColor: '#000', shadowOffset: { width: 0, height: -10 }, shadowOpacity: 0.2, shadowRadius: 20, overflow: 'hidden' },
   sheetAuto: { paddingBottom: 40 }, 
-  sheetFull: { height: screenHeight * 0.95 }, 
+  sheetFull: { height: '95%' }, 
 
   indicatorBar: { position: 'absolute', top: 12, left: '50%', marginLeft: -24, width: 48, height: 5, backgroundColor: '#e5e7eb', borderRadius: 3, zIndex: 50 },
   
-  // MENU UTAMA FIXED
   menuContainer: { paddingHorizontal: 30, paddingTop: 35 },
   mainTitle: { fontSize: 18, fontWeight: '900', color: '#1f2937', textAlign: 'center', marginBottom: 25 },
   gridMenu: { flexDirection: 'row', justifyContent: 'center', gap: 16, flexWrap: 'wrap' },
@@ -431,7 +334,6 @@ const styles = StyleSheet.create({
   iconBoxMenu: { width: 56, height: 56, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   menuTitle: { fontSize: 10, fontWeight: 'bold', color: '#4b5563', textAlign: 'center' },
 
-  // HEADER FORM (EMERALD / MERAH / ORANGE / BIRU)
   emeraldHeader: { paddingHorizontal: 24, paddingVertical: 24, paddingTop: 35, borderBottomWidth: 1, borderBottomColor: '#f3f4f6', position: 'relative' },
   emeraldGlow: { position: 'absolute', right: -20, top: -20, width: 120, height: 120, backgroundColor: '#a7f3d0', borderRadius: 60, opacity: 0.4 },
   redGlow: { position: 'absolute', right: -20, top: -20, width: 120, height: 120, backgroundColor: '#fecaca', borderRadius: 60, opacity: 0.4 },
@@ -451,14 +353,8 @@ const styles = StyleSheet.create({
   orangeIconBox: { width: 48, height: 48, borderRadius: 16, backgroundColor: '#ffedd5', alignItems: 'center', justifyContent: 'center', transform: [{rotate: '12deg'}], zIndex: 10 },
   blueIconBox: { width: 48, height: 48, borderRadius: 16, backgroundColor: '#dbeafe', alignItems: 'center', justifyContent: 'center', zIndex: 10 },
 
-  subHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingBottom: 15, paddingTop: 35 },
-  btnBack: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  backText: { fontSize: 14, fontWeight: 'bold', color: '#4b5563' },
-  btnClose: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#f3f4f6', alignItems: 'center', justifyContent: 'center' },
+  contentScroll: { paddingHorizontal: 24, paddingBottom: 60, paddingTop: 5 },
 
-  contentScroll: { paddingHorizontal: 24, paddingBottom: 120, paddingTop: 5 }, // 💡 Padding bawah di-ekstra-in biar lega pas scroll pakai keyboard
-
-  // DARK CARD (Nabung & Keluar)
   darkCard: { backgroundColor: '#111827', borderRadius: 24, paddingTop: 24, paddingBottom: 32, paddingHorizontal: 24, marginBottom: 24, elevation: 10, position: 'relative', overflow: 'hidden' },
   darkCardGlow: { position: 'absolute', right: -40, top: -40, width: 140, height: 140, backgroundColor: '#10b981', borderRadius: 70, opacity: 0.15 },
   redDarkCardGlow: { position: 'absolute', right: -40, top: -40, width: 140, height: 140, backgroundColor: '#ef4444', borderRadius: 70, opacity: 0.15 },
@@ -486,7 +382,6 @@ const styles = StyleSheet.create({
 
   customInput: { backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 16, padding: 16, fontSize: 14, fontWeight: 'bold', color: '#111827', marginBottom: 20 },
 
-  // STYLE KHUSUS TUGAS
   titleDashedInput: { fontSize: 24, fontWeight: '900', color: '#111827', borderBottomWidth: 2, borderBottomColor: '#e5e7eb', borderStyle: 'dashed', paddingBottom: 12, marginBottom: 25 },
   priorityCard: { width: '31.5%', paddingVertical: 16, borderRadius: 16, borderWidth: 2, alignItems: 'center' },
   priorityInactive: { backgroundColor: '#ffffff', borderColor: '#f3f4f6' },
@@ -496,23 +391,10 @@ const styles = StyleSheet.create({
   priorityText: { fontSize: 12, fontWeight: 'bold', color: '#9ca3af' },
   yellowTextarea: { backgroundColor: '#fefce8', borderWidth: 1, borderColor: '#fef08a', borderRadius: 16, padding: 16, fontSize: 14, fontWeight: 'bold', color: '#374151', minHeight: 120, textAlignVertical: 'top', marginBottom: 20 },
   
-  // 💡 STYLE KHUSUS CATATAN (TERBARU)
   noteTitleInput: { fontSize: 32, fontWeight: '900', color: '#111827', borderBottomWidth: 2, borderBottomColor: '#f3f4f6', paddingBottom: 12, marginBottom: 15 },
   paperWrapper: { flex: 1, position: 'relative', overflow: 'hidden', minHeight: 250, paddingBottom: 20 },
-  noteContentInput: { 
-    flex: 1, 
-    fontSize: 16, 
-    fontWeight: '500', 
-    color: '#374151', 
-    textAlignVertical: 'top', 
-    lineHeight: 32, // Wajib sama dengan tinggi baris PaperLines
-    paddingTop: 5, // Biar teks pas duduk di atas garis
-    paddingLeft: 48, // Lewatin garis merah
-    paddingRight: 10,
-    zIndex: 1 
-  },
+  noteContentInput: { flex: 1, fontSize: 16, fontWeight: '500', color: '#374151', textAlignVertical: 'top', lineHeight: 32, paddingTop: 5, paddingLeft: 48, paddingRight: 10, zIndex: 1 },
   
-  // FIXED FOOTER
   fixedFooter: { paddingHorizontal: 24, paddingVertical: 20, borderTopWidth: 1, borderTopColor: '#f3f4f6', backgroundColor: '#fff' },
   btnSimpanNabung: { backgroundColor: '#10b981', paddingVertical: 16, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, elevation: 4 },
   btnSimpanKeluar: { backgroundColor: '#dc2626', paddingVertical: 16, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, elevation: 4 },
