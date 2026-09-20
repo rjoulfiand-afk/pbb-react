@@ -4,13 +4,13 @@
     "slug": "primenotes-v2",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/images/icon.png",
     "scheme": "primenotes",
     "userInterfaceStyle": "automatic",
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#dc2626",
-        "foregroundImage": "./assets/icon.png"
+        "foregroundImage": "./assets/images/icon.png"
       },
       "package": "com.rjoulfiand.primenotes",
       "predictiveBackGestureEnabled": false
@@ -24,7 +24,7 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#dc2626",
-          "image": "./assets/splash.png",
+          "image": "./assets/images/splash.png",
           "imageWidth": 200
         }
       ],
