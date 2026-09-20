@@ -12,7 +12,6 @@ export default function SplashScreen() {
   const slideAnim = useRef(new Animated.Value(-50)).current;
 
   useEffect(() => {
-    // Jalankan animasi (Nyambar & Muncul)
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -31,9 +30,8 @@ export default function SplashScreen() {
       })
     ]).start();
 
-    // Pindah ke Login setelah 3 detik
     const timer = setTimeout(() => {
-      router.replace('/login');
+      router.replace('/dashboard');
     }, 3000);
 
     return () => clearTimeout(timer);
