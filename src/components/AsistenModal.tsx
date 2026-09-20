@@ -5,6 +5,9 @@ import * as SQLite from 'expo-sqlite';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
+// 🔥 IMPORT KONEKSI SUPABASE
+import { supabase } from '../lib/supabase';
+
 export default function AsistenModal({ visible, onClose }: { visible: boolean, onClose: () => void }) {
   const [pesan, setPesan] = useState('');
   const [chats, setChats] = useState<any[]>([]);
@@ -13,15 +16,16 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
   const [gambarBase64, setGambarBase64] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   
+  // State rahasia buat nampung API Key dari Supabase
+  const [cloudApiKey, setCloudApiKey] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  const identitasNori = "You are Nori, a professional and highly intelligent AI assistant integrated into Rixsan Joulfiand's Productivity mobile app. You must always address Rixsan as 'Boss Jull'. Use formal, professional, polite, and clear English. You are an expert in programming (React Native, Laravel, Expo, Tailwind) and productivity advice. Provide structured, informative, and concise answers.";
+  const identitasNori = "You are Nori, a highly intelligent and professional AI assistant for Rixsan Joulfiand's Productivity app. You must always address Rixsan as 'Boss Jull'. Use formal, professional, polite, and clear English. You are an expert in programming (React Native, Expo, Tailwind, PHP, SQL) and productivity. Provide structured, informative, and concise answers.";
   
-  const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-
-  // === 1. LOAD MEMORI DARI SQLITE (Aman dari NullPointer) ===
+  // === 1. PROSES INIT: LOAD LOKAL & CLOUD ===
   useEffect(() => {
     if (visible) {
+      // A. Ambil Memori Chat (Lokal SQLite)
       try {
         const db = SQLite.openDatabaseSync('primenotes_v2.db');
         const chatsRow: any = db.getFirstSync("SELECT value FROM settings WHERE key = 'nori_chats'");
@@ -31,19 +35,40 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
           setChats(JSON.parse(chatsRow.value));
           setApiHistory(JSON.parse(historyRow.value));
         } else {
-          const initChat = [{ role: 'ai', text: "Welcome back, Boss Jull. I am Nori, your AI assistant. My memory and vision systems are online. How can I help you maximize your productivity today?", time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }];
+          const initChat = [{ role: 'ai', text: "Systems online. Welcome back, Boss Jull. My neural link is active and ready to assist you.", time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }];
           setChats(initChat);
           db.runSync("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", ['nori_chats', JSON.stringify(initChat)]);
           db.runSync("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", ['nori_apiHistory', JSON.stringify([])]);
         }
       } catch (e) {
-        console.log("Error load memory Nori", e);
+        console.log("Error load local memory", e);
       }
       setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 300);
+
+      // B. Ambil API Key Gemini (Cloud Supabase)
+      const fetchApiFromCloud = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('app_secrets')
+            .select('api_key')
+            .eq('service_name', 'gemini')
+            .single();
+          
+          if (data && data.api_key) {
+            setCloudApiKey(data.api_key);
+          } else if (error) {
+            console.log("Supabase Fetch Error:", error.message);
+          }
+        } catch (err) {
+          console.log("Supabase Connection Error:", err);
+        }
+      };
+      
+      fetchApiFromCloud();
     }
   }, [visible]);
 
-  // === 2. FUNGSI SIMPAN MEMORI & HAPUS MEMORI ===
+  // === 2. FUNGSI SIMPAN MEMORI ===
   const saveMemory = (newChats: any[], newHistory: any[]) => {
     try {
       const db = SQLite.openDatabaseSync('primenotes_v2.db');
@@ -58,17 +83,17 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
   };
 
   const hapusMemori = () => {
-    Alert.alert("Reset Memory", "Are you sure you want to clear the entire conversation history?", [
+    Alert.alert("Neural Reset", "Are you sure you want to format Nori's memory banks?", [
       { text: "Cancel", style: "cancel" },
-      { text: "Reset", style: "destructive", onPress: () => {
-          const initChat = [{ role: 'ai', text: "Memory has been successfully cleared, Boss Jull. Please start a new conversation.", time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }];
+      { text: "Format", style: "destructive", onPress: () => {
+          const initChat = [{ role: 'ai', text: "Memory banks formatted successfully, Boss Jull. Awaiting new instructions.", time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }];
           saveMemory(initChat, []);
         } 
       }
     ]);
   };
 
-  // === 3. FUNGSI PILIH GAMBAR ===
+  // === 3. FUNGSI GAMBAR ===
   const pilihGambar = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -83,7 +108,7 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
     }
   };
 
-  // === 4. FUNGSI KIRIM PESAN KE GEMINI ===
+  // === 4. FUNGSI UTAMA AI ===
   const kirimPesan = async () => {
     const pesanUser = pesan.trim();
     if (!pesanUser && !gambarBase64) return;
@@ -91,16 +116,16 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
     const perintah = pesanUser.toLowerCase();
     let isShortcut = false;
 
-    if (perintah.includes('open instagram') || perintah.includes('buka ig') || perintah.includes('buka instagram')) {
-      prosesChatLokal(pesanUser, 'Opening Instagram now, Boss Jull.');
+    if (perintah.includes('open instagram') || perintah.includes('buka ig')) {
+      prosesChatLokal(pesanUser, 'Executing protocol: Launching Instagram, Boss Jull.');
       Linking.openURL('https://instagram.com');
       isShortcut = true;
-    } else if (perintah.includes('open whatsapp') || perintah.includes('buka wa') || perintah.includes('buka whatsapp')) {
-      prosesChatLokal(pesanUser, 'Opening WhatsApp application...');
+    } else if (perintah.includes('open whatsapp') || perintah.includes('buka wa')) {
+      prosesChatLokal(pesanUser, 'Executing protocol: Accessing WhatsApp...');
       Linking.openURL('whatsapp://send?text=Hello');
       isShortcut = true;
     } else if (perintah.includes('open tiktok') || perintah.includes('buka tiktok')) {
-      prosesChatLokal(pesanUser, 'Opening TikTok for you, Boss Jull.');
+      prosesChatLokal(pesanUser, 'Executing protocol: Initializing TikTok, Boss Jull.');
       Linking.openURL('https://tiktok.com');
       isShortcut = true;
     }
@@ -110,9 +135,10 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
       return;
     }
 
-    if (!apiKey) {
+    // 🛑 CEK KONEKSI SUPABASE
+    if (!cloudApiKey) {
       const newChats = [...chats, { role: 'user', text: pesanUser, image: gambarUri, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }];
-      newChats.push({ role: 'ai', text: "I apologize, Boss Jull. The Gemini API Key is not configured. Please check your .env file.", time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) });
+      newChats.push({ role: 'ai', text: "System Warning, Boss Jull. Unable to establish secure connection to the Cloud Vault. Please verify your internet connection or Supabase configuration.", time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) });
       setChats(newChats);
       setPesan(''); setGambarUri(null); setGambarBase64(null);
       setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
@@ -121,7 +147,7 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
 
     let parts: any[] = [];
     if (pesanUser) parts.push({ text: pesanUser });
-    else parts.push({ text: 'Please analyze this attached image.' });
+    else parts.push({ text: 'Please analyze the visual data provided.' });
 
     if (gambarBase64) {
       parts.push({ inline_data: { mime_type: "image/jpeg", data: gambarBase64 } });
@@ -136,7 +162,7 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
     setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${cloudApiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -149,11 +175,11 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
       const data = await response.json();
       
       if (!response.ok) {
-        let errorMsg = "A system error occurred.";
+        let errorMsg = "A critical system error occurred during API processing.";
         if (data.error?.message?.includes("API key not valid") || data.error?.status === "INVALID_ARGUMENT") {
-          errorMsg = "The Gemini API Key provided is invalid or expired. Please update your API key in the .env file, Boss Jull.";
+          errorMsg = "Authentication failure. The API Key retrieved from the Cloud Vault is invalid. Please update the master key in Supabase, Boss Jull.";
         } else if (data.error?.message) {
-          errorMsg = `API Error: ${data.error.message}`;
+          errorMsg = `API Exception: ${data.error.message}`;
         }
         throw new Error(errorMsg);
       }
@@ -164,7 +190,7 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
         newChats.push({ role: 'ai', text: balasan, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) });
         saveMemory(newChats, newHistory);
       } else {
-        throw new Error("I apologize, but I cannot process that request at the moment.");
+        throw new Error("Unable to parse a valid response from the cognitive server.");
       }
       
     } catch (error: any) {
@@ -192,42 +218,47 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
         
         <View style={styles.container}>
           
-          <View style={styles.header}>
+          {/* HEADER PREMIUM (Gaya Dashboard Dark) */}
+          <LinearGradient colors={['#111827', '#1f2937']} style={styles.header}>
             <View style={styles.headerLeft}>
               <TouchableOpacity onPress={onClose} style={styles.btnBack}>
-                <FontAwesome5 name="chevron-left" size={14} color="#64748b" />
+                <FontAwesome5 name="chevron-left" size={14} color="#9ca3af" />
               </TouchableOpacity>
               <View style={styles.noriProfileBox}>
                 <View style={styles.noriAvatar}>
-                  <FontAwesome5 name="robot" size={16} color="#ef4444" />
+                  <FontAwesome5 name="robot" size={16} color="#fff" />
                   <View style={styles.onlineDot} />
                 </View>
                 <View>
-                  <Text style={styles.noriName}>Nori AI</Text>
-                  <Text style={styles.noriStatus}>SYSTEM ACTIVE</Text>
+                  <Text style={styles.noriName}>NORI-AI</Text>
+                  <Text style={styles.noriStatus}>{cloudApiKey ? 'VAULT LINKED' : 'OFFLINE'}</Text>
                 </View>
               </View>
             </View>
             <TouchableOpacity onPress={hapusMemori} style={styles.btnReset}>
-              <FontAwesome5 name="broom" size={12} color="#94a3b8" />
+              <FontAwesome5 name="power-off" size={12} color="#f87171" />
             </TouchableOpacity>
-          </View>
+          </LinearGradient>
 
+          {/* AREA CHAT */}
           <ScrollView ref={scrollViewRef} style={styles.chatArea} contentContainerStyle={styles.chatScrollContent} showsVerticalScrollIndicator={false}>
-            <View style={styles.badgePercakapan}><Text style={styles.badgeText}>Conversation History</Text></View>
+            <View style={styles.badgePercakapan}>
+              <FontAwesome5 name="lock" size={10} color="#9ca3af" style={{marginRight: 6}}/>
+              <Text style={styles.badgeText}>Encrypted Channel</Text>
+            </View>
 
             {chats.map((chat, idx) => (
               <View key={idx} style={[styles.chatRow, chat.role === 'user' ? styles.chatRowUser : styles.chatRowAi]}>
                 
                 {chat.role === 'ai' && (
                   <View style={styles.bubbleAiAvatar}>
-                    <FontAwesome5 name="robot" size={12} color="#ef4444" />
+                    <FontAwesome5 name="robot" size={12} color="#4b5563" />
                   </View>
                 )}
 
                 <View style={styles.bubbleWrapper}>
                   {chat.role === 'user' ? (
-                    <LinearGradient colors={['#ef4444', '#e11d48']} style={styles.bubbleUser}>
+                    <LinearGradient colors={['#dc2626', '#b91c1c']} style={styles.bubbleUser}>
                       {chat.image && <Image source={{ uri: chat.image }} style={styles.chatImage} />}
                       {chat.text ? <Text style={styles.textUser}>{chat.text}</Text> : null}
                     </LinearGradient>
@@ -239,7 +270,7 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
                   
                   <View style={[styles.timeRow, chat.role === 'user' ? { alignSelf: 'flex-end' } : { alignSelf: 'flex-start', marginLeft: 10 }]}>
                     <Text style={styles.timeText}>{chat.time}</Text>
-                    {chat.role === 'user' && <FontAwesome5 name="check-double" size={8} color="#ef4444" style={{marginLeft: 4}} />}
+                    {chat.role === 'user' && <FontAwesome5 name="check-double" size={8} color="#dc2626" style={{marginLeft: 4}} />}
                   </View>
                 </View>
               </View>
@@ -247,47 +278,50 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
 
             {isLoading && (
               <View style={[styles.chatRow, styles.chatRowAi]}>
-                <View style={styles.bubbleAiAvatar}><FontAwesome5 name="robot" size={12} color="#ef4444" /></View>
-                <View style={styles.bubbleAi}><ActivityIndicator size="small" color="#ef4444" /></View>
+                <View style={styles.bubbleAiAvatar}><FontAwesome5 name="robot" size={12} color="#4b5563" /></View>
+                <View style={styles.bubbleAi}><ActivityIndicator size="small" color="#dc2626" /></View>
               </View>
             )}
           </ScrollView>
 
+          {/* ORB STATUS */}
           <View style={styles.orbContainer}>
             <View style={styles.orbSpeechBubble}>
-              <Text style={styles.orbSpeechText}>{isLoading ? 'Processing...' : 'Ready, Boss Jull!'}</Text>
+              <Text style={styles.orbSpeechText}>{isLoading ? 'Processing Data...' : 'Awaiting Orders.'}</Text>
             </View>
-            <View style={styles.orbCircle}>
-              {isLoading ? <FontAwesome5 name="cog" size={24} color="#f43f5e" solid /> : <FontAwesome5 name="robot" size={24} color="#ef4444" solid />}
-            </View>
+            <LinearGradient colors={isLoading ? ['#f87171', '#dc2626'] : ['#1f2937', '#111827']} style={styles.orbCircle}>
+              <FontAwesome5 name="crosshairs" size={20} color={isLoading ? '#fff' : '#ef4444'} solid />
+            </LinearGradient>
           </View>
 
+          {/* PREVIEW GAMBAR */}
           {gambarUri && (
             <View style={styles.previewImageContainer}>
               <Image source={{ uri: gambarUri }} style={styles.previewImage} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.previewImageTitle}>Image Attached</Text>
-                <TouchableOpacity onPress={() => { setGambarUri(null); setGambarBase64(null); }}><Text style={styles.previewImageCancel}>Remove</Text></TouchableOpacity>
+                <Text style={styles.previewImageTitle}>Visual Attached</Text>
+                <TouchableOpacity onPress={() => { setGambarUri(null); setGambarBase64(null); }}><Text style={styles.previewImageCancel}>Disconnect</Text></TouchableOpacity>
               </View>
             </View>
           )}
 
+          {/* INPUT AREA */}
           <View style={styles.inputContainer}>
             <View style={styles.inputBox}>
               <TouchableOpacity onPress={pilihGambar} style={styles.btnCamera}>
-                <FontAwesome5 name="image" size={18} color="#94a3b8" />
+                <FontAwesome5 name="camera" size={16} color="#6b7280" />
               </TouchableOpacity>
               <TextInput 
                 value={pesan} 
                 onChangeText={setPesan} 
-                placeholder="Type your instructions..." 
-                placeholderTextColor="#94a3b8" 
+                placeholder="Initialize command sequence..." 
+                placeholderTextColor="#9ca3af" 
                 style={styles.textInput}
                 editable={!isLoading}
                 onSubmitEditing={kirimPesan}
               />
-              <TouchableOpacity onPress={kirimPesan} disabled={isLoading || (!pesan.trim() && !gambarUri)} style={styles.btnSend}>
-                {isLoading ? <ActivityIndicator size="small" color="#fff" /> : <FontAwesome5 name="paper-plane" size={14} color="#fff" style={{ marginLeft: -2 }} />}
+              <TouchableOpacity onPress={kirimPesan} disabled={isLoading || (!pesan.trim() && !gambarUri)} style={[styles.btnSend, (isLoading || (!pesan.trim() && !gambarUri)) && {backgroundColor: '#e5e7eb'}]}>
+                {isLoading ? <ActivityIndicator size="small" color="#fff" /> : <FontAwesome5 name="terminal" size={12} color="#fff" />}
               </TouchableOpacity>
             </View>
           </View>
@@ -299,44 +333,54 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'flex-end' },
-  container: { height: '92%', backgroundColor: '#f8fafc', borderTopLeftRadius: 35, borderTopRightRadius: 35, overflow: 'hidden', elevation: 25 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 25, paddingBottom: 15, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#f1f5f9', zIndex: 10 },
+  overlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.75)', justifyContent: 'flex-end' },
+  container: { height: '95%', backgroundColor: '#f9fafb', borderTopLeftRadius: 35, borderTopRightRadius: 35, overflow: 'hidden', elevation: 30 },
+  
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 25, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: '#1f2937', zIndex: 10 },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 15 },
-  btnBack: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#f8fafc', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#f1f5f9' },
+  btnBack: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   noriProfileBox: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  noriAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#fff', borderWidth: 2, borderColor: '#fecaca', alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  onlineDot: { position: 'absolute', bottom: 0, right: 0, width: 12, height: 12, backgroundColor: '#34d399', borderRadius: 6, borderWidth: 2, borderColor: '#fff' },
-  noriName: { fontSize: 18, fontWeight: '900', color: '#1e293b' },
-  noriStatus: { fontSize: 9, fontWeight: '900', color: '#ef4444', letterSpacing: 1 },
-  btnReset: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#f8fafc', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#f1f5f9' },
-  chatArea: { flex: 1, backgroundColor: '#f8fafc' },
-  chatScrollContent: { paddingHorizontal: 20, paddingBottom: 140, paddingTop: 20 },
-  badgePercakapan: { alignSelf: 'center', backgroundColor: '#e2e8f0', paddingHorizontal: 15, paddingVertical: 6, borderRadius: 20, marginBottom: 20 },
-  badgeText: { fontSize: 9, fontWeight: '900', color: '#94a3b8', letterSpacing: 1, textTransform: 'uppercase' },
+  noriAvatar: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#dc2626', alignItems: 'center', justifyContent: 'center', position: 'relative', elevation: 5 },
+  onlineDot: { position: 'absolute', bottom: -2, right: -2, width: 12, height: 12, backgroundColor: '#10b981', borderRadius: 6, borderWidth: 2, borderColor: '#111827' },
+  noriName: { fontSize: 16, fontWeight: '900', color: '#f9fafb', letterSpacing: 1 },
+  noriStatus: { fontSize: 9, fontWeight: '900', color: '#34d399', letterSpacing: 1.5, marginTop: 2 },
+  btnReset: { width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)' },
+  
+  chatArea: { flex: 1, backgroundColor: '#f3f4f6' },
+  chatScrollContent: { paddingHorizontal: 20, paddingBottom: 150, paddingTop: 25 },
+  badgePercakapan: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', backgroundColor: '#e5e7eb', paddingHorizontal: 15, paddingVertical: 6, borderRadius: 20, marginBottom: 25, borderWidth: 1, borderColor: '#d1d5db' },
+  badgeText: { fontSize: 9, fontWeight: '900', color: '#6b7280', letterSpacing: 1, textTransform: 'uppercase' },
+  
   chatRow: { flexDirection: 'row', marginBottom: 20, width: '100%' },
   chatRowUser: { justifyContent: 'flex-end' },
   chatRowAi: { justifyContent: 'flex-start' },
+  
   bubbleWrapper: { maxWidth: '82%' },
-  bubbleAiAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center', justifyContent: 'center', marginRight: 10, alignSelf: 'flex-end', marginBottom: 15 },
-  bubbleAi: { backgroundColor: '#fff', padding: 15, borderRadius: 20, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: '#f1f5f9', elevation: 1 },
-  textAi: { fontSize: 14, color: '#334155', lineHeight: 22, fontWeight: '500' },
-  bubbleUser: { padding: 15, borderRadius: 20, borderBottomRightRadius: 4, elevation: 2 },
-  textUser: { fontSize: 14, color: '#fff', lineHeight: 22, fontWeight: '500' },
-  chatImage: { width: 200, height: 150, borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' },
-  timeRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
-  timeText: { fontSize: 10, fontWeight: 'bold', color: '#94a3b8' },
-  orbContainer: { position: 'absolute', bottom: 100, right: 20, alignItems: 'flex-end', zIndex: 20 },
-  orbSpeechBubble: { backgroundColor: 'rgba(255,255,255,0.9)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderBottomRightRadius: 4, elevation: 4, marginBottom: 10, borderWidth: 1, borderColor: '#f1f5f9' },
-  orbSpeechText: { fontSize: 11, fontWeight: '900', color: '#ef4444' },
-  orbCircle: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#fff', elevation: 10, borderWidth: 3, borderColor: '#ffe4e6', alignItems: 'center', justifyContent: 'center' },
-  previewImageContainer: { position: 'absolute', bottom: 90, left: 20, backgroundColor: '#fff', padding: 10, borderRadius: 16, elevation: 5, flexDirection: 'row', alignItems: 'center', gap: 12, zIndex: 20 },
-  previewImage: { width: 50, height: 50, borderRadius: 10 },
-  previewImageTitle: { fontSize: 12, fontWeight: 'bold', color: '#1e293b' },
+  bubbleAiAvatar: { width: 32, height: 32, borderRadius: 12, backgroundColor: '#e5e7eb', borderWidth: 1, borderColor: '#d1d5db', alignItems: 'center', justifyContent: 'center', marginRight: 10, alignSelf: 'flex-end', marginBottom: 15 },
+  
+  bubbleAi: { backgroundColor: '#ffffff', padding: 15, borderRadius: 20, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: '#e5e7eb', elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5 },
+  textAi: { fontSize: 13, color: '#374151', lineHeight: 22, fontWeight: '500' },
+  
+  bubbleUser: { padding: 15, borderRadius: 20, borderBottomRightRadius: 4, elevation: 3, shadowColor: '#dc2626', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 5 },
+  textUser: { fontSize: 13, color: '#ffffff', lineHeight: 22, fontWeight: '600' },
+  chatImage: { width: 200, height: 150, borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+
+  timeRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
+  timeText: { fontSize: 9, fontWeight: 'bold', color: '#9ca3af' },
+
+  orbContainer: { position: 'absolute', bottom: 105, right: 20, alignItems: 'flex-end', zIndex: 20 },
+  orbSpeechBubble: { backgroundColor: 'rgba(17,24,39,0.9)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderBottomRightRadius: 4, elevation: 5, marginBottom: 10, borderWidth: 1, borderColor: '#374151' },
+  orbSpeechText: { fontSize: 10, fontWeight: '900', color: '#f87171', letterSpacing: 0.5 },
+  orbCircle: { width: 56, height: 56, borderRadius: 28, elevation: 15, borderWidth: 2, borderColor: '#fca5a5', alignItems: 'center', justifyContent: 'center', shadowColor: '#dc2626', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.4, shadowRadius: 10 },
+
+  previewImageContainer: { position: 'absolute', bottom: 95, left: 20, backgroundColor: '#ffffff', padding: 10, borderRadius: 16, elevation: 10, flexDirection: 'row', alignItems: 'center', gap: 12, zIndex: 20, borderWidth: 1, borderColor: '#e5e7eb' },
+  previewImage: { width: 45, height: 45, borderRadius: 10 },
+  previewImageTitle: { fontSize: 11, fontWeight: '900', color: '#111827' },
   previewImageCancel: { fontSize: 10, fontWeight: 'bold', color: '#ef4444', marginTop: 2 },
-  inputContainer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20, backgroundColor: 'rgba(248, 250, 252, 0.95)' },
-  inputBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 30, padding: 6, elevation: 5, borderWidth: 1, borderColor: '#e2e8f0' },
-  btnCamera: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc' },
-  textInput: { flex: 1, paddingHorizontal: 12, fontSize: 14, fontWeight: '600', color: '#1e293b', height: 44 },
-  btnSend: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#ef4444', alignItems: 'center', justifyContent: 'center', elevation: 2 },
+
+  inputContainer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20, paddingBottom: Platform.OS === 'ios' ? 30 : 20, backgroundColor: 'rgba(249, 250, 251, 0.95)', borderTopWidth: 1, borderTopColor: '#f3f4f6' },
+  inputBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff', borderRadius: 25, padding: 6, elevation: 8, borderWidth: 1, borderColor: '#e5e7eb', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10 },
+  btnCamera: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f3f4f6' },
+  textInput: { flex: 1, paddingHorizontal: 15, fontSize: 13, fontWeight: '600', color: '#111827', height: 44 },
+  btnSend: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#dc2626', alignItems: 'center', justifyContent: 'center', elevation: 3 },
 });

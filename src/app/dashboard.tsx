@@ -1,8 +1,8 @@
 import { FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as SQLite from 'expo-sqlite';
+import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
-import { Alert, Modal, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Modal, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 // Import semua komponen modal
 import AddMenuModal from '../components/AddMenuModal';
@@ -10,14 +10,23 @@ import AsistenModal from '../components/AsistenModal';
 import DaftarTugasModal from '../components/DaftarTugasModal';
 import DompetModal from '../components/DompetModal';
 import PortalModal from '../components/PortalModal';
+import ProfileModal from '../components/ProfileModal';
 
 export default function Dashboard() {
+  const db = useSQLiteContext();
+
   // === STATE MODAL ===
   const [modalVisible, setModalVisible] = useState(false);
   const [dompetVisible, setDompetVisible] = useState(false);
   const [portalVisible, setPortalVisible] = useState(false);
   const [asistenVisible, setAsistenVisible] = useState(false);
   const [daftarTugasVisible, setDaftarTugasVisible] = useState(false);
+  
+  // 💡 STATE PROFIL BARU
+  const [profileVisible, setProfileVisible] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [userExp, setUserExp] = useState(0);
+  const [userLevel, setUserLevel] = useState(1);
 
   // === STATE DATABASE ===
   const [totalKas, setTotalKas] = useState(0);
@@ -32,29 +41,51 @@ export default function Dashboard() {
   const [inputNamaTarget, setInputNamaTarget] = useState('');
   const [inputNominalTarget, setInputNominalTarget] = useState('');
   const [konfirmasiTask, setKonfirmasiTask] = useState(false);
-  
   const [previewData, setPreviewData] = useState({ visible: false, title: '', text: '', date: '', color: '', icon: '' });
 
-  // 💡 HELPER: Hapus 'fa-' dari database Laravel biar kebaca di Expo
-  const cleanIcon = (iconName: string) => {
-    if (!iconName) return 'lightbulb';
-    return iconName.replace('fa-', '');
-  };
+  // === MESIN WAKTU ===
+  const [waktu, setWaktu] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setWaktu(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const jam = waktu.getHours();
+  let sapaan = '';
+  let kutipan = '';
+
+  if (jam >= 5 && jam < 11) {
+    sapaan = 'Pagi lur!';
+    kutipan = '"Kopi udah siap? Bantai task sekolah sama project lu hari ini! ☕"';
+  } else if (jam >= 11 && jam < 15) {
+    sapaan = 'Siang lur!';
+    kutipan = '"Fokus! Bantai bug-nya, target project harus kelar ☀️"';
+  } else if (jam >= 15 && jam < 18) {
+    sapaan = 'Sore lur!';
+    kutipan = '"Dikit lagi kelar nih, push commit dulu biar aman! 🌆"';
+  } else {
+    sapaan = 'Malam lur!';
+    kutipan = '"Satu baris kode hari ini, satu langkah menuju Pro! 🏆"';
+  }
+
+  const jamRealTime = waktu.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':');
+
+  const cleanIcon = (iconName: string) => iconName ? iconName.replace('fa-', '') : 'lightbulb';
 
   const loadDataDariDatabase = () => {
     try {
-      const db = SQLite.openDatabaseSync('primenotes_v2.db');
-      
-      db.execSync(`
-        CREATE TABLE IF NOT EXISTS savings (id INTEGER PRIMARY KEY AUTOINCREMENT, amount INTEGER, purpose TEXT, saved_at TEXT, created_at TEXT, updated_at TEXT);
-        CREATE TABLE IF NOT EXISTS expenses (id INTEGER PRIMARY KEY AUTOINCREMENT, amount INTEGER, description TEXT, created_at TEXT, updated_at TEXT);
-        CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, priority TEXT, due_date TEXT, detail TEXT, is_completed INTEGER, created_at TEXT, updated_at TEXT);
-        CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, content TEXT, icon TEXT, color TEXT, created_at TEXT, updated_at TEXT);
-        CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
-      `);
-
       const targetNameRow: any = db.getFirstSync("SELECT value FROM settings WHERE key = 'targetName'");
       const targetAmountRow: any = db.getFirstSync("SELECT value FROM settings WHERE key = 'targetAmount'");
+
+      // 💡 Tarik Data Profil
+      const imgRow: any = db.getFirstSync("SELECT value FROM settings WHERE key = 'profileImage'");
+      const expRow: any = db.getFirstSync("SELECT value FROM settings WHERE key = 'userExp'");
+      
+      setProfileImage(imgRow ? imgRow.value : null);
+      const currentExp = expRow ? parseInt(expRow.value) : 0;
+      setUserExp(currentExp);
+      setUserLevel(Math.floor(currentExp / 100) + 1);
       
       if (!targetNameRow) {
         db.runSync("INSERT INTO settings (key, value) VALUES ('targetName', 'Rakit PC')");
@@ -93,7 +124,9 @@ export default function Dashboard() {
       const notesRes: any[] = db.getAllSync('SELECT * FROM notes ORDER BY id DESC');
       setNotes(notesRes);
 
-    } catch (error) { console.log("Gagal tarik data:", error); }
+    } catch (error) { 
+      console.log("Gagal tarik data:", error); 
+    }
   };
 
   useEffect(() => { loadDataDariDatabase(); }, []);
@@ -104,26 +137,33 @@ export default function Dashboard() {
   };
 
   const simpanTarget = () => {
-    const db = SQLite.openDatabaseSync('primenotes_v2.db');
-    const cleanAmount = parseInt(inputNominalTarget.replace(/[^0-9]/g, '')) || 0;
-    db.runSync("UPDATE settings SET value = ? WHERE key = 'targetName'", [inputNamaTarget || 'Target Baru']);
-    db.runSync("UPDATE settings SET value = ? WHERE key = 'targetAmount'", [cleanAmount.toString()]);
-    setEditTargetMode(false);
-    loadDataDariDatabase();
-    Alert.alert("Sukses", "Target mimpimu udah di-update!");
+    try {
+      const cleanAmount = parseInt(inputNominalTarget.replace(/[^0-9]/g, '')) || 0;
+      db.runSync("UPDATE settings SET value = ? WHERE key = 'targetName'", [inputNamaTarget || 'Target Baru']);
+      db.runSync("UPDATE settings SET value = ? WHERE key = 'targetAmount'", [cleanAmount.toString()]);
+      setEditTargetMode(false);
+      loadDataDariDatabase();
+      Alert.alert("Sukses", "Target mimpimu udah di-update!");
+    } catch (error) {
+      Alert.alert("Waduh Boss", "Gagal simpan target!");
+    }
   };
 
-  const selesaiTugas = (id: number) => {
-    const db = SQLite.openDatabaseSync('primenotes_v2.db');
+const selesaiTugas = (id: number) => {
     db.runSync("UPDATE tasks SET is_completed = 1 WHERE id = ?", [id]);
+    const newExp = userExp + 25;
+    db.runSync("INSERT OR REPLACE INTO settings (key, value) VALUES ('userExp', ?)", [newExp.toString()]);
     loadDataDariDatabase();
+    Alert.alert(
+      "Pencapaian Terbuka 🏆", 
+      `Kerja luar biasa! Anda mendapatkan +25 EXP.\nTotal EXP saat ini: ${newExp}`
+    );
   };
 
   const hapusCatatan = (id: number) => {
     Alert.alert("Hapus Catatan?", "Yakin mau hapus ide ini?", [
       { text: "Batal", style: "cancel" },
       { text: "Hapus", style: "destructive", onPress: () => {
-          const db = SQLite.openDatabaseSync('primenotes_v2.db');
           db.runSync("DELETE FROM notes WHERE id = ?", [id]);
           loadDataDariDatabase();
         } 
@@ -148,17 +188,21 @@ export default function Dashboard() {
         
         <View style={styles.headerProfile}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.greetingTitle}>Malam boss! Waktunya nge-push commit nih 🚀</Text>
-            <Text style={styles.greetingSub}>"Satu baris kode hari ini, satu langkah menuju Pro! 🏆"</Text>
+            <Text style={styles.greetingTitle}>{sapaan} Waktunya nge-push commit nih 🚀</Text>
+            <Text style={styles.greetingSub}>{kutipan}</Text>
             <View style={styles.badgeLocal}>
               <View style={styles.dotRed} />
-              <Text style={styles.textLocal}>SEKARANG | LOKAL</Text>
+              <Text style={styles.textLocal}>{jamRealTime} | SURABAYA</Text>
             </View>
           </View>
-          <View style={styles.avatarBox}>
-            <Text style={styles.avatarText}>RI</Text>
-            <View style={styles.levelBadge}><Text style={styles.levelText}>5</Text></View>
-          </View>
+          <TouchableOpacity onPress={() => setProfileVisible(true)} style={styles.avatarBox}>
+            {profileImage ? (
+              <Image source={{ uri: profileImage }} style={{ width: '100%', height: '100%', borderRadius: 25 }} />
+            ) : (
+              <Text style={styles.avatarText}>RI</Text>
+            )}
+            <View style={styles.levelBadge}><Text style={styles.levelText}>{userLevel}</Text></View>
+          </TouchableOpacity>
         </View>
 
         <View style={{ marginHorizontal: 24, borderRadius: 32, elevation: 15, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.25, shadowRadius: 20, marginBottom: 15 }}>
@@ -308,6 +352,9 @@ export default function Dashboard() {
       <DaftarTugasModal visible={daftarTugasVisible} onClose={() => setDaftarTugasVisible(false)} onUpdate={loadDataDariDatabase} />
       <DompetModal visible={dompetVisible} onClose={() => setDompetVisible(false)} />
       <PortalModal visible={portalVisible} onClose={() => setPortalVisible(false)} />
+      
+
+        <ProfileModal visible={profileVisible} onClose={() => setProfileVisible(false)} onSuccess={loadDataDariDatabase} userExp={userExp} userLevel={userLevel} profileImage={profileImage} />
 
       <Modal visible={editTargetMode} transparent animationType="fade">
         <View style={styles.modalOverlay}>

@@ -1,45 +1,47 @@
 {
   "expo": {
-    "name": "jull_app",
-    "slug": "jull_app",
+    "name": "Prime Notes",
+    "slug": "primenotes-v2",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "jullapp",
+    "icon": "./assets/icon.png",
+    "scheme": "primenotes",
     "userInterfaceStyle": "automatic",
-    "ios": {
-      "icon": "./assets/expo.icon"
-    },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#dc2626",
+        "foregroundImage": "./assets/icon.png"
       },
+      "package": "com.rjoulfiand.primenotes",
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "output": "static"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "backgroundColor": "#dc2626",
+          "image": "./assets/splash.png",
+          "imageWidth": 200
         }
       ],
       "expo-sqlite",
       "expo-image",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "259c0c82-2619-49f1-bb92-5a59bd27d2a7"
+      }
     }
   }
 }

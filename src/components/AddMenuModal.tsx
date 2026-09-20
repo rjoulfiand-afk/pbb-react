@@ -1,10 +1,9 @@
 import { FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as SQLite from 'expo-sqlite';
+import { useSQLiteContext } from 'expo-sqlite'; // 👈 Cuma butuh ini dari expo-sqlite
 import { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-const db = SQLite.openDatabaseSync('primenotes_v2.db');
 
 const PaperLines = () => (
   <View style={[StyleSheet.absoluteFill, { zIndex: 0 }]} pointerEvents="none">
@@ -16,6 +15,10 @@ const PaperLines = () => (
 );
 
 export default function AddMenuModal({ visible, onClose, onSuccess }: { visible: boolean, onClose: () => void, onSuccess: () => void }) {
+  
+  // ✅ PASANG KABEL DATABASE BARU DI SINI!
+  const db = useSQLiteContext();
+
   const [activeForm, setActiveForm] = useState<'menu' | 'nabung' | 'keluar' | 'tugas' | 'catatan'>('menu');
 
   const [uangStr, setUangStr] = useState('');

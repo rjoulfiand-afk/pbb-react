@@ -1,24 +1,29 @@
 import { FontAwesome5 } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
-import * as SQLite from 'expo-sqlite';
+import * as Sharing from 'expo-sharing';
+import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
-import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-
-const db = SQLite.openDatabaseSync('primenotes.db');
+import { Alert, Image, Linking, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function DompetModal({ visible, onClose }: { visible: boolean, onClose: () => void }) {
+  const db = useSQLiteContext();
   const [wallets, setWallets] = useState<any[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
 
-  // Form State
+  // === State Form ===
   const [walletId, setWalletId] = useState<number | null>(null);
   const [provider, setProvider] = useState('DANA');
   const [accountNumber, setAccountNumber] = useState('');
   const [accountName, setAccountName] = useState('');
   const [qrImage, setQrImage] = useState<string | null>(null);
 
-  // Load Data
+  // === State Viewer QR & WhatsApp ===
+  const [selectedWallet, setSelectedWallet] = useState<any>(null);
+  const [phoneTarget, setPhoneTarget] = useState('');
+  const [showQrViewer, setShowQrViewer] = useState(false);
+  const [showWaPrompt, setShowWaPrompt] = useState(false);
+
   const loadData = () => {
     try {
       const data = db.getAllSync('SELECT * FROM wallets ORDER BY id DESC');
@@ -32,46 +37,35 @@ export default function DompetModal({ visible, onClose }: { visible: boolean, on
     if (visible) loadData();
   }, [visible]);
 
-  // Fungsi Copy Teks
   const copyToClipboard = async (text: string) => {
     await Clipboard.setStringAsync(text);
-    Alert.alert("Berhasil!", "Nomor rekening disalin ke clipboard ✅");
+    Alert.alert("Copied!", "Account number saved to clipboard ✅");
   };
 
-  // Fungsi Buka Galeri HP
-const pickImage = async () => {
-      let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'], // <--- GANTI JADI GINI AJA CUY
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.8,
+      quality: 1,
     });
 
     if (!result.canceled) {
-      setQrImage(result.assets[0].uri); // Simpan path lokal HP nya
+      setQrImage(result.assets[0].uri);
     }
   };
 
-  // Fungsi Simpan ke SQLite
   const handleSimpan = () => {
     if (!provider || !accountNumber || !accountName) {
       Alert.alert("Error", "Isi semua data bang!");
       return;
     }
-
     try {
       if (walletId) {
-        db.runSync(
-          'UPDATE wallets SET provider = ?, account_number = ?, account_name = ?, qr_image_path = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-          [provider, accountNumber, accountName, qrImage, walletId]
-        );
+        db.runSync('UPDATE wallets SET provider = ?, account_number = ?, account_name = ?, qr_image_path = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [provider, accountNumber, accountName, qrImage, walletId]);
       } else {
-        db.runSync(
-          'INSERT INTO wallets (provider, account_number, account_name, qr_image_path) VALUES (?, ?, ?, ?)',
-          [provider, accountNumber, accountName, qrImage]
-        );
+        db.runSync('INSERT INTO wallets (provider, account_number, account_name, qr_image_path) VALUES (?, ?, ?, ?)', [provider, accountNumber, accountName, qrImage]);
       }
-      
       resetForm();
       loadData();
     } catch (error) {
@@ -107,7 +101,6 @@ const pickImage = async () => {
     setIsFormOpen(false);
   };
 
-  // Logika Warna Kartu Dinamis
   const getCardStyle = (prov: string) => {
     const p = prov.toUpperCase();
     if (p.includes('DANA')) return { bg: '#3b82f6', icon: 'mobile-alt' };
@@ -116,7 +109,49 @@ const pickImage = async () => {
     if (p.includes('BCA')) return { bg: '#1e3a8a', icon: 'university' };
     if (p.includes('MANDIRI')) return { bg: '#eab308', icon: 'university' };
     if (p.includes('SHOPEE')) return { bg: '#f97316', icon: 'shopping-bag' };
-    return { bg: '#1f2937', icon: 'wallet' }; // Default Hitam
+    return { bg: '#1f2937', icon: 'wallet' }; 
+  };
+
+  // === FITUR SHARE & SAVE QR CODE AMAN DI EXPO GO ===
+  const downloadQR = async (imageUri: string) => {
+    try {
+      if (!(await Sharing.isAvailableAsync())) {
+        Alert.alert("Error", "Sharing is not available on this device");
+        return;
+      }
+      // Membuka menu share sistem di mana user bisa pilih "Save to Photos/Files"
+      await Sharing.shareAsync(imageUri);
+    } catch (error) {
+      Alert.alert("Error", "Gagal membuka menu simpan gambar.");
+    }
+  };
+
+  // === FITUR SEND TO WHATSAPP ===
+  const sendToWhatsApp = async () => {
+    if (!phoneTarget) {
+      Alert.alert("Target Blank", "Please enter a valid WhatsApp number.");
+      return;
+    }
+    
+    let formattedPhone = phoneTarget.replace(/\D/g, '');
+    if (formattedPhone.startsWith('0')) formattedPhone = '62' + formattedPhone.substring(1);
+
+    const message = `*Payment Details Request* 💼\n\nHello, here are my payment details as requested:\n\n🏦 *Bank/Provider:* ${selectedWallet?.provider}\n👤 *Account Name:* ${selectedWallet?.account_name}\n💳 *Account Number:* ${selectedWallet?.account_number}\n\n_Thank you for your business. Please confirm once the transaction is completed._ 🚀`;
+    
+    const url = `whatsapp://send?phone=${formattedPhone}&text=${encodeURIComponent(message)}`;
+    
+    try {
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+        setShowWaPrompt(false);
+        setPhoneTarget('');
+      } else {
+        Alert.alert("Error", "WhatsApp is not installed on this device.");
+      }
+    } catch (error) {
+      Alert.alert("Error", "Could not open WhatsApp.");
+    }
   };
 
   return (
@@ -139,8 +174,6 @@ const pickImage = async () => {
           </View>
 
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-            
-            {/* STATE 1: DAFTAR DOMPET */}
             {!isFormOpen ? (
               <View>
                 <View style={styles.sectionTitleBox}>
@@ -164,8 +197,9 @@ const pickImage = async () => {
                       <View key={wallet.id} style={[styles.card, { backgroundColor: cardTheme.bg }]}>
                         {/* Tombol Aksi */}
                         <View style={styles.cardActions}>
+                          <TouchableOpacity onPress={() => { setSelectedWallet(wallet); setShowWaPrompt(true); }} style={[styles.actionBtn, {backgroundColor: '#22c55e', marginRight: 5}]}><FontAwesome5 name="whatsapp" size={14} color="#fff" /></TouchableOpacity>
                           <TouchableOpacity onPress={() => handleEdit(wallet)} style={styles.actionBtn}><FontAwesome5 name="pen" size={12} color="#fff" /></TouchableOpacity>
-                          <TouchableOpacity onPress={() => handleDelete(wallet.id)} style={[styles.actionBtn, {backgroundColor: '#ef4444'}]}><FontAwesome5 name="trash" size={12} color="#fff" /></TouchableOpacity>
+                          <TouchableOpacity onPress={() => handleDelete(wallet.id)} style={[styles.actionBtn, {backgroundColor: '#ef4444', marginLeft: 5}]}><FontAwesome5 name="trash" size={12} color="#fff" /></TouchableOpacity>
                         </View>
 
                         {/* Info Dompet */}
@@ -185,12 +219,13 @@ const pickImage = async () => {
                           </TouchableOpacity>
                         </View>
 
-                        {/* QR Code kalau ada */}
+                        {/* TAMPILAN MINI QR (BISA DI-TAP) */}
                         {wallet.qr_image_path && (
-                          <View style={styles.qrBox}>
-                            <Text style={styles.qrTitle}>SCAN QRIS</Text>
-                            <Image source={{ uri: wallet.qr_image_path }} style={styles.qrImg} />
-                          </View>
+                          <TouchableOpacity onPress={() => { setSelectedWallet(wallet); setShowQrViewer(true); }} style={styles.qrBox}>
+                            <Text style={styles.qrTitle}>TAP UNTUK LIHAT QRIS</Text>
+                            <View pointerEvents="none"><Image source={{ uri: wallet.qr_image_path }} style={styles.qrImgMini} blurRadius={2} /></View>
+                            <View style={styles.qrOverlayIcon}><FontAwesome5 name="search-plus" size={24} color="#111827" /></View>
+                          </TouchableOpacity>
                         )}
                       </View>
                     )
@@ -198,15 +233,12 @@ const pickImage = async () => {
                 )}
               </View>
             ) : (
-              
               /* STATE 2: FORM TAMBAH/EDIT */
               <View style={styles.formContainer}>
                 <Text style={styles.label}>NAMA BANK / E-WALLET</Text>
                 <TextInput value={provider} onChangeText={setProvider} placeholder="Cth: DANA, BCA, OVO" style={styles.input} />
-
                 <Text style={styles.label}>NOMOR REKENING / HP</Text>
                 <TextInput value={accountNumber} onChangeText={setAccountNumber} placeholder="Cth: 08123456789" keyboardType="numeric" style={styles.input} />
-
                 <Text style={styles.label}>ATAS NAMA</Text>
                 <TextInput value={accountName} onChangeText={setAccountName} placeholder="Cth: Rixsan Joulfiand" style={styles.input} />
 
@@ -232,11 +264,63 @@ const pickImage = async () => {
                 </TouchableOpacity>
               </View>
             )}
-            
             <View style={{height: 40}} />
           </ScrollView>
         </View>
       </View>
+
+      {/* 💡 SUB-MODAL 1: QR CODE VIEWER FULL SCREEN */}
+      <Modal visible={showQrViewer} transparent animationType="fade">
+        <View style={styles.viewerOverlay}>
+          <TouchableOpacity style={{flex: 1, width: '100%'}} activeOpacity={1} onPress={() => setShowQrViewer(false)} />
+          
+          <View style={styles.qrPigora}>
+            <View style={styles.qrPigoraHeader}>
+              <Text style={styles.qrPigoraTitle}>{selectedWallet?.provider}</Text>
+              <Text style={styles.qrPigoraSub}>{selectedWallet?.account_name}</Text>
+            </View>
+            
+            {selectedWallet?.qr_image_path && (
+              <Image source={{ uri: selectedWallet.qr_image_path }} style={styles.qrPigoraImage} />
+            )}
+            
+            <View style={styles.qrPigoraActions}>
+              <TouchableOpacity onPress={() => downloadQR(selectedWallet?.qr_image_path)} style={styles.btnDownload}>
+                <FontAwesome5 name="share-alt" size={14} color="#111827" />
+                <Text style={styles.btnDownloadText}>Save / Share QR</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <TouchableOpacity onPress={() => setShowQrViewer(false)} style={styles.btnClosePigora}>
+            <FontAwesome5 name="times" size={18} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity style={{flex: 1, width: '100%'}} activeOpacity={1} onPress={() => setShowQrViewer(false)} />
+        </View>
+      </Modal>
+
+      {/* 💡 SUB-MODAL 2: WHATSAPP PROMPT */}
+      <Modal visible={showWaPrompt} transparent animationType="fade">
+        <View style={styles.viewerOverlay}>
+          <TouchableOpacity style={{flex: 1, width: '100%'}} activeOpacity={1} onPress={() => setShowWaPrompt(false)} />
+          
+          <View style={styles.waPromptBox}>
+            <View style={styles.waIconWrap}><FontAwesome5 name="whatsapp" size={30} color="#25D366" /></View>
+            <Text style={styles.waTitle}>Kirim Detail Tagihan</Text>
+            <Text style={styles.waSub}>Kirim detail {selectedWallet?.provider} lu pakai bahasa Inggris otomatis via WhatsApp.</Text>
+            
+            <TextInput value={phoneTarget} onChangeText={setPhoneTarget} placeholder="Masukin nomor WA (cth: 0812...)" keyboardType="phone-pad" style={styles.waInput} />
+            
+            <View style={{flexDirection: 'row', gap: 10, marginTop: 20}}>
+              <TouchableOpacity onPress={() => setShowWaPrompt(false)} style={styles.waBtnBatal}><Text style={styles.waBtnBatalText}>Batal</Text></TouchableOpacity>
+              <TouchableOpacity onPress={sendToWhatsApp} style={styles.waBtnKirim}><Text style={styles.waBtnKirimText}>Launch WA</Text></TouchableOpacity>
+            </View>
+          </View>
+          
+          <TouchableOpacity style={{flex: 1, width: '100%'}} activeOpacity={1} onPress={() => setShowWaPrompt(false)} />
+        </View>
+      </Modal>
+
     </Modal>
   );
 }
@@ -244,26 +328,22 @@ const pickImage = async () => {
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(17, 24, 39, 0.7)', justifyContent: 'flex-end' },
   bottomSheet: { backgroundColor: '#f9fafb', height: '90%', borderTopLeftRadius: 40, borderTopRightRadius: 40, overflow: 'hidden', elevation: 20 },
-  
   header: { flexDirection: 'row', alignItems: 'center', padding: 25, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f3f4f6' },
   btnBack: { width: 45, height: 45, backgroundColor: '#f9fafb', borderRadius: 25, borderWidth: 1, borderColor: '#e5e7eb', alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 22, fontWeight: '900', color: '#111827' },
   headerSubtitle: { fontSize: 10, fontWeight: 'bold', color: '#6b7280', letterSpacing: 1, marginTop: 2 },
   headerIconBox: { width: 45, height: 45, backgroundColor: '#fef2f2', borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  
   content: { padding: 20 },
   sectionTitleBox: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   sectionTitle: { fontSize: 14, fontWeight: '900', color: '#1f2937' },
   btnAdd: { flexDirection: 'row', backgroundColor: '#111827', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, alignItems: 'center', gap: 6 },
   btnAddText: { color: '#fff', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-  
   emptyBox: { backgroundColor: '#fff', borderWidth: 2, borderStyle: 'dashed', borderColor: '#e5e7eb', borderRadius: 20, padding: 30, alignItems: 'center' },
   emptyText: { fontSize: 14, fontWeight: 'bold', color: '#6b7280', marginTop: 15 },
   emptySub: { fontSize: 10, color: '#9ca3af', marginTop: 5, textAlign: 'center' },
-
   card: { borderRadius: 30, padding: 20, marginBottom: 20, elevation: 5 },
-  cardActions: { position: 'absolute', top: 15, right: 15, flexDirection: 'row', gap: 8, zIndex: 10 },
-  actionBtn: { width: 35, height: 35, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' },
+  cardActions: { position: 'absolute', top: 15, right: 15, flexDirection: 'row', gap: 4, zIndex: 10 },
+  actionBtn: { width: 35, height: 35, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center' },
   cardInfo: { flexDirection: 'row', alignItems: 'center', gap: 15, marginBottom: 20 },
   cardIconBox: { width: 50, height: 50, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   cardProvider: { fontSize: 24, fontWeight: '900', color: '#fff', letterSpacing: -1 },
@@ -271,9 +351,11 @@ const styles = StyleSheet.create({
   accountBox: { backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 20, padding: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   accountNumber: { fontSize: 20, fontFamily: 'monospace', fontWeight: 'bold', color: '#fff', letterSpacing: 2 },
   copyBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
-  qrBox: { backgroundColor: '#fff', borderRadius: 20, padding: 15, alignItems: 'center', marginTop: 15, borderStyle: 'dashed', borderWidth: 2, borderColor: 'rgba(255,255,255,0.5)' },
+  
+  qrBox: { backgroundColor: '#fff', borderRadius: 20, padding: 15, alignItems: 'center', marginTop: 15, position: 'relative', overflow: 'hidden' },
   qrTitle: { fontSize: 10, fontWeight: '900', color: '#1f2937', letterSpacing: 1, marginBottom: 10 },
-  qrImg: { width: 150, height: 150, borderRadius: 15, resizeMode: 'contain' },
+  qrImgMini: { width: '100%', height: 60, opacity: 0.3, resizeMode: 'cover' },
+  qrOverlayIcon: { position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center', top: 20 },
 
   formContainer: { backgroundColor: '#fff', padding: 20, borderRadius: 30, borderWidth: 1, borderColor: '#f3f4f6' },
   label: { fontSize: 10, fontWeight: '900', color: '#6b7280', letterSpacing: 1, marginBottom: 8, marginTop: 15 },
@@ -281,5 +363,26 @@ const styles = StyleSheet.create({
   uploadBox: { backgroundColor: '#f9fafb', borderWidth: 2, borderStyle: 'dashed', borderColor: '#d1d5db', borderRadius: 20, padding: 30, alignItems: 'center', marginTop: 5 },
   uploadText: { fontSize: 12, fontWeight: 'bold', color: '#6b7280', marginTop: 10 },
   btnSimpan: { backgroundColor: '#dc2626', padding: 18, borderRadius: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 25 },
-  btnSimpanText: { color: '#fff', fontSize: 16, fontWeight: '900' }
+  btnSimpanText: { color: '#fff', fontSize: 16, fontWeight: '900' },
+
+  viewerOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.9)', alignItems: 'center', justifyContent: 'center', padding: 20 },
+  qrPigora: { backgroundColor: '#fff', padding: 20, borderRadius: 32, width: '100%', maxWidth: 360, alignItems: 'center' },
+  qrPigoraHeader: { alignItems: 'center', marginBottom: 20 },
+  qrPigoraTitle: { fontSize: 24, fontWeight: '900', color: '#111827' },
+  qrPigoraSub: { fontSize: 12, fontWeight: 'bold', color: '#6b7280', letterSpacing: 1 },
+  qrPigoraImage: { width: 250, height: 250, borderRadius: 16 },
+  qrPigoraActions: { flexDirection: 'row', gap: 10, marginTop: 25, width: '100%' },
+  btnDownload: { flex: 1, backgroundColor: '#f3f4f6', paddingVertical: 14, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  btnDownloadText: { fontSize: 12, fontWeight: 'bold', color: '#111827' },
+  btnClosePigora: { marginTop: 30, width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  
+  waPromptBox: { backgroundColor: '#fff', padding: 25, borderRadius: 32, width: '100%', maxWidth: 360, alignItems: 'center' },
+  waIconWrap: { width: 60, height: 60, backgroundColor: '#dcf8c6', borderRadius: 30, alignItems: 'center', justifyContent: 'center', marginBottom: 15 },
+  waTitle: { fontSize: 20, fontWeight: '900', color: '#111827', marginBottom: 5 },
+  waSub: { fontSize: 12, color: '#6b7280', textAlign: 'center', marginBottom: 20, paddingHorizontal: 10 },
+  waInput: { width: '100%', backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 16, padding: 15, fontSize: 16, fontWeight: 'bold', color: '#111827', textAlign: 'center' },
+  waBtnBatal: { flex: 1, paddingVertical: 14, backgroundColor: '#f3f4f6', borderRadius: 16, alignItems: 'center' },
+  waBtnBatalText: { fontSize: 14, fontWeight: 'bold', color: '#4b5563' },
+  waBtnKirim: { flex: 1, paddingVertical: 14, backgroundColor: '#25D366', borderRadius: 16, alignItems: 'center' },
+  waBtnKirimText: { fontSize: 14, fontWeight: '900', color: '#fff' },
 });
