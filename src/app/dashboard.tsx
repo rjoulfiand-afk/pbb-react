@@ -74,6 +74,7 @@ export default function Dashboard() {
   const cleanIcon = (iconName: string) => iconName ? iconName.replace('fa-', '') : 'lightbulb';
 
   const loadDataDariDatabase = () => {
+    if (!db) return;
     try {
       const targetNameRow: any = db.getFirstSync("SELECT value FROM settings WHERE key = 'targetName'");
       const targetAmountRow: any = db.getFirstSync("SELECT value FROM settings WHERE key = 'targetAmount'");
