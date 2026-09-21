@@ -11,7 +11,7 @@ export default function DompetModal({ visible, onClose }: { visible: boolean, on
   const [wallets, setWallets] = useState<any[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
 
-  // === State Form ===
+
   const [walletId, setWalletId] = useState<number | null>(null);
   const [provider, setProvider] = useState('DANA');
   const [accountNumber, setAccountNumber] = useState('');

@@ -1,12 +1,13 @@
 import { FontAwesome5 } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import * as SQLite from 'expo-sqlite';
+import { useSQLiteContext } from 'expo-sqlite'; // 👈 Ganti jadi ini
 import { useEffect, useState } from 'react';
 import { Alert, Linking, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-const db = SQLite.openDatabaseSync('primenotes.db');
-
 export default function PortalModal({ visible, onClose }: { visible: boolean, onClose: () => void }) {
+  // ✅ Panggil db dari pintu utama
+  const db = useSQLiteContext(); 
+
   // State Navigasi
   const [viewState, setViewState] = useState<'home' | 'lemari' | 'form'>('home');
   const [activeLemari, setActiveLemari] = useState('');

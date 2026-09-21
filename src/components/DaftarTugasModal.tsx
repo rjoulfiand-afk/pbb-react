@@ -1,13 +1,16 @@
 import { FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as SQLite from 'expo-sqlite';
+import { useSQLiteContext } from 'expo-sqlite'; // 👈 Panggil context-nya
 import { useEffect, useState } from 'react';
 import { Alert, Dimensions, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-const db = SQLite.openDatabaseSync('primenotes_v2.db');
 const { height: screenHeight } = Dimensions.get('screen');
+// 🗑️ HAPUS SQLite.openDatabaseSync dari sini!
 
 export default function DaftarTugasModal({ visible, onClose, onUpdate }: { visible: boolean, onClose: () => void, onUpdate: () => void }) {
+  // ✅ Pindah ke DALAM fungsi
+  const db = useSQLiteContext(); 
+
   const [tasks, setTasks] = useState<any[]>([]);
   const [konfirmasiSelesai, setKonfirmasiSelesai] = useState<number | null>(null);
 

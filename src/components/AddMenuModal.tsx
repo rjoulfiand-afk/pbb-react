@@ -19,6 +19,7 @@ export default function AddMenuModal({ visible, onClose, onSuccess }: { visible:
   // ✅ PASANG KABEL DATABASE BARU DI SINI!
   const db = useSQLiteContext();
 
+
   const [activeForm, setActiveForm] = useState<'menu' | 'nabung' | 'keluar' | 'tugas' | 'catatan'>('menu');
 
   const [uangStr, setUangStr] = useState('');
