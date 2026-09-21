@@ -1,7 +1,7 @@
 import { FontAwesome5 } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as SQLite from 'expo-sqlite';
+import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
@@ -9,6 +9,7 @@ import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Linking, Modal, 
 import { supabase } from '../lib/supabase';
 
 export default function AsistenModal({ visible, onClose }: { visible: boolean, onClose: () => void }) {
+  const db = useSQLiteContext();
   const [pesan, setPesan] = useState('');
   const [chats, setChats] = useState<any[]>([]);
   const [apiHistory, setApiHistory] = useState<any[]>([]);
@@ -23,11 +24,11 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
   const identitasNori = "You are Nori, a highly intelligent and professional AI assistant for Rixsan Joulfiand's Productivity app. You must always address Rixsan as 'Boss Jull'. Use formal, professional, polite, and clear English. You are an expert in programming (React Native, Expo, Tailwind, PHP, SQL) and productivity. Provide structured, informative, and concise answers.";
   
   // === 1. PROSES INIT: LOAD LOKAL & CLOUD ===
-  useEffect(() => {
+ useEffect(() => {
     if (visible) {
       // A. Ambil Memori Chat (Lokal SQLite)
       try {
-        const db = SQLite.openDatabaseSync('primenotes_v2.db');
+        // 🗑️ Baris openDatabaseSync dihapus!
         const chatsRow: any = db.getFirstSync("SELECT value FROM settings WHERE key = 'nori_chats'");
         const historyRow: any = db.getFirstSync("SELECT value FROM settings WHERE key = 'nori_apiHistory'");
         
@@ -44,6 +45,8 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
         console.log("Error load local memory", e);
       }
       setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 300);
+      
+      // ... (sisa kodingan fetchApiFromCloud di bawahnya biarkan utuh)
 
       // B. Ambil API Key Gemini (Cloud Supabase)
       const fetchApiFromCloud = async () => {
@@ -69,9 +72,9 @@ export default function AsistenModal({ visible, onClose }: { visible: boolean, o
   }, [visible]);
 
   // === 2. FUNGSI SIMPAN MEMORI ===
-  const saveMemory = (newChats: any[], newHistory: any[]) => {
+const saveMemory = (newChats: any[], newHistory: any[]) => {
     try {
-      const db = SQLite.openDatabaseSync('primenotes_v2.db');
+      // 🗑️ Baris openDatabaseSync dihapus, langsung pakai db bawaan dari context
       setChats(newChats);
       setApiHistory(newHistory);
       db.runSync("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", ['nori_chats', JSON.stringify(newChats)]);
