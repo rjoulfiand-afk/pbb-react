@@ -58,6 +58,16 @@ export const setupDatabase = async (db: SQLiteDatabase) => {
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
 
+
+      CREATE TABLE IF NOT EXISTS portal_links (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, 
+        lemari TEXT NOT NULL, 
+        judul TEXT NOT NULL, 
+        url TEXT NOT NULL, 
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
       -- 🛡️ TABEL WAJIB UNTUK MENCEGAH LOOPING LOGIN & SESI
       CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
