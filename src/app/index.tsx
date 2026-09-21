@@ -1,4 +1,5 @@
 import { FontAwesome5 } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
@@ -30,8 +31,22 @@ export default function SplashScreen() {
       })
     ]).start();
 
+    // 🧠 Logika Pengecekan Sesi Login
+    const checkSession = async () => {
+      try {
+        const savedEmail = await AsyncStorage.getItem('pn_mail');
+        if (savedEmail) {
+          router.replace('/dashboard'); // Udah login? Langsung ke Dashboard
+        } else {
+          router.replace('/login'); // Belum login? Lempar ke halaman Login
+        }
+      } catch (error) {
+        router.replace('/login'); // Kalau ada error baca storage, amanin ke login
+      }
+    };
+
     const timer = setTimeout(() => {
-      router.replace('/dashboard');
+      checkSession();
     }, 3000);
 
     return () => clearTimeout(timer);
@@ -52,7 +67,7 @@ export default function SplashScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#dc2626', // Merah cetar Tailwind (red-600)
+    backgroundColor: '#dc2626', 
     justifyContent: 'center',
     alignItems: 'center',
   },
